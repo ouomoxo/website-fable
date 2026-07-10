@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>KATABASIS — The House of Forgotten Gods</title>
+<meta name="description" content="A descent in six chambers. A digital monument of marble, dust and light — veiled figures, fallen columns, and one winged colossus that refused to be forgotten." />
+<meta property="og:title" content="KATABASIS — The House of Forgotten Gods" />
+<meta property="og:description" content="A descent in six chambers. Scroll to go down." />
+<meta property="og:type" content="website" />
+<meta property="og:image" content="assets/poster.jpg" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="theme-color" content="#070605" />
+<link rel="icon" type="image/svg+xml" href="assets/mark.svg" />
+<link rel="preload" href="assets/fonts/CormorantGaramond-normal-300.woff2" as="font" type="font/woff2" crossorigin />
+<link rel="preload" href="assets/fonts/Inter-normal-300.woff2" as="font" type="font/woff2" crossorigin />
+<link rel="stylesheet" href="css/fonts.css" />
+<link rel="stylesheet" href="css/main.css" />
+<script type="importmap">
+{ "imports": { "three": "./js/lib/three.module.min.js" } }
+</script>
+</head>
+<body>
+
+<!-- ══════════════ RENDER SURFACE ══════════════ -->
+<canvas id="scene" aria-hidden="true"></canvas>
+
+<!-- ══════════════ SCROLL TRACK ══════════════ -->
+<div id="track" aria-hidden="true"></div>
+
+<!-- ══════════════ LOADER ══════════════ -->
+<div id="loader" role="status" aria-label="Loading the monument">
+  <div class="loader-inner">
+    <div class="loader-mark" aria-hidden="true">K</div>
+    <div class="loader-word">KATABASIS</div>
+    <div class="loader-bar" aria-hidden="true"><span id="loader-fill"></span></div>
+    <div class="loader-status"><span id="loader-task">QUARRYING MARBLE</span><span id="loader-pct">0</span></div>
+    <div id="loader-enter" hidden>
+      <p class="loader-invite">The house is open. It has always been open.</p>
+      <div class="loader-buttons">
+        <button id="enter-silence" class="enter-btn" type="button">Enter in silence</button>
+        <button id="enter-sound" class="enter-btn" type="button">Enter with sound</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ FALLBACK (no WebGL) ══════════════ -->
+<div id="fallback" hidden>
+  <div class="fallback-inner">
+    <h1>KATABASIS</h1>
+    <p class="italic">A descent into the house of forgotten gods.</p>
+    <p>This monument is carved from WebGL, and your browser has declined the chisel.
+       Return with hardware acceleration enabled, and the door will be where you left it.</p>
+  </div>
+</div>
+
+<!-- ══════════════ CHROME ══════════════ -->
+<header id="chrome" aria-label="Site">
+  <a href="#threshold" id="wordmark" data-cursor="hover">KATABASIS</a>
+  <div id="chrome-right">
+    <button id="motion-toggle" type="button" data-cursor="hover" aria-pressed="false" title="Reduce motion">STILL</button>
+    <button id="sound-toggle" type="button" data-cursor="hover" aria-pressed="false" aria-label="Toggle sound">
+      <span class="st-label">SOUND</span>
+      <span class="st-wave" aria-hidden="true"><i></i><i></i><i></i></span>
+    </button>
+  </div>
+</header>
+
+<!-- Depth gauge -->
+<div id="gauge" aria-hidden="true">
+  <div class="gauge-line"><span id="gauge-fill"></span></div>
+  <div id="gauge-depth">0 m</div>
+</div>
+
+<!-- Chamber navigation -->
+<nav id="nav" aria-label="Chambers">
+  <a href="#threshold"  data-i="0" data-cursor="hover"><span class="nv-n">I</span><span class="nv-t">Threshold</span></a>
+  <a href="#procession" data-i="1" data-cursor="hover"><span class="nv-n">II</span><span class="nv-t">The Procession</span></a>
+  <a href="#veiled"     data-i="2" data-cursor="hover"><span class="nv-n">III</span><span class="nv-t">The Veiled</span></a>
+  <a href="#fallen"     data-i="3" data-cursor="hover"><span class="nv-n">IV</span><span class="nv-t">The Fallen</span></a>
+  <a href="#winged"     data-i="4" data-cursor="hover"><span class="nv-n">V</span><span class="nv-t">The Winged One</span></a>
+  <a href="#anabasis"   data-i="5" data-cursor="hover"><span class="nv-n">VI</span><span class="nv-t">Anabasis</span></a>
+</nav>
+
+<!-- ══════════════ COPY ══════════════ -->
+<main id="copy">
+
+  <section class="chapter" id="threshold" data-range="0,0.075">
+    <div class="ch-inner hero">
+      <p class="kicker"><span>An exhibition in six chambers</span><span class="dot"></span><span>Excavated from no place</span><span class="dot"></span><span>Open forever</span></p>
+      <h1 class="hero-title" aria-label="KATABASIS"><span>K</span><span>A</span><span>T</span><span>A</span><span>B</span><span>A</span><span>S</span><span>I</span><span>S</span></h1>
+      <p class="hero-sub">A descent into the house of forgotten gods.</p>
+      <p class="scroll-hint" aria-hidden="true"><span class="sh-line"></span>Scroll to descend</p>
+    </div>
+  </section>
+
+  <section class="chapter" id="procession" data-range="0.13,0.30">
+    <div class="ch-inner left">
+      <p class="label">Chamber II — The Procession</p>
+      <h2>Every pilgrimage begins<br/>by leaving the light.</h2>
+      <p class="body">Forty columns carry a ceiling no one has ever seen.
+      They were raised by hands that believed weight could be a prayer.
+      Walk between them slowly. The dark ahead of you is not empty —
+      it is waiting.</p>
+    </div>
+  </section>
+
+  <section class="chapter" id="veiled" data-range="0.36,0.56">
+    <div class="ch-inner right">
+      <p class="label">Chamber III — The Veiled</p>
+      <h2>The gods did not die.<br/>They were forgotten,<br/>which is slower.</h2>
+      <p class="body">Three figures. Marble. Heights unrecorded.
+      When the last worshipper left, the sanctuary covered its own statues —
+      not to protect the stone, but to spare it the sight of an empty door.</p>
+      <ul class="plaques">
+        <li><span class="pl-n">i</span><span class="pl-name">The Witness</span><span class="pl-line">saw everything, and was asked nothing.</span></li>
+        <li><span class="pl-n">ii</span><span class="pl-name">The Orant</span><span class="pl-line">still mid-prayer; the request survives, the language does not.</span></li>
+        <li><span class="pl-n">iii</span><span class="pl-name">The Mourner</span><span class="pl-line">grief that has outlived its cause, and stayed.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="chapter" id="fallen" data-range="0.60,0.745">
+    <div class="ch-inner left">
+      <p class="label">Chamber IV — The Fallen</p>
+      <h2>Even ruin<br/>is a form of architecture.</h2>
+      <p class="body">The roof failed in one night, in the year the record ends.
+      The columns lie exactly where they landed, keeping the grammar
+      of their falling. Nothing here has been restored.
+      Restoration is a kind of forgetting.</p>
+    </div>
+  </section>
+
+  <section class="chapter" id="winged" data-range="0.795,0.935">
+    <div class="ch-inner center low">
+      <p class="label">Chamber V — The Winged One</p>
+      <h2>One of them<br/>refused to be forgotten.</h2>
+      <p class="body">She has no face, and needs none. Sixteen metres of wing,
+      never veiled — the shroud would not stay on. She is not waiting
+      to be worshipped. She is waiting for you to look up.</p>
+    </div>
+  </section>
+
+  <section class="chapter" id="anabasis" data-range="0.952,1">
+    <div class="ch-inner center">
+      <p class="label">Chamber VI — Anabasis</p>
+      <h2 class="final-line">Go up.<br/>Tell them the stone is still here.</h2>
+      <div class="colophon">
+        <p>KATABASIS is a digital monument. No stone was quarried; the marble,
+        the dust and the dark were computed for you alone, and will be
+        computed again for whoever comes next.</p>
+        <p class="colophon-meta">Set in Cormorant Garamond &amp; Inter · Carved in WebGL · MMXXVI</p>
+        <button id="return-top" type="button" data-cursor="hover">Descend again</button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ══════════════ CURSOR ══════════════ -->
+<div id="cursor" aria-hidden="true"><div id="cursor-dot"></div><div id="cursor-ring"></div></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
