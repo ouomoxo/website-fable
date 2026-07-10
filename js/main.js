@@ -324,7 +324,7 @@ function loop() {
   const now = performance.now();
   const dt = Math.min(0.05, (now - lastTime) / 1000);
   lastTime = now;
-  state.time += dt;
+  state.time = state.timeLock ?? (state.time + dt);
 
   // damped progress — the building refuses to be rushed
   const damp = state.still ? 1 : 1 - Math.exp(-dt * 2.1);
@@ -408,6 +408,11 @@ if (new URLSearchParams(location.search).has('probe')) {
       state.target = p;
       state.progress = p;
       fadeBlack.value = fadeBlack.target;
+    },
+    // deterministic offline frame: pin progress AND the clock
+    frame(p, t) {
+      this.jump(p);
+      state.timeLock = t;
     },
     info() {
       return {
