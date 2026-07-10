@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 // KATABASIS — effects
-// Dust that remembers air. Light given a body. A final pass of
-// grain, vignette and tone.
+// Sparse dust that lives only inside the light. A shaft given a
+// body. A final pass of tone, faint grain and a quiet vignette.
 // ═══════════════════════════════════════════════════════════════
 
 import * as THREE from 'three';
@@ -24,8 +24,8 @@ export function makeGlowTexture(size = 128, inner = 'rgba(255,244,224,1)', mid =
 }
 
 // ── dust ───────────────────────────────────────────────────────
-// One Points cloud per chamber volume. Vertex shader drifts each
-// mote on its own slow orbit; alpha fades near and far.
+// One Points cloud per light volume. Motes drift very slowly and
+// exist only while crossing the shaft — never as decoration.
 
 const DUST_VERT = /* glsl */`
   attribute float aSeed;
@@ -34,15 +34,15 @@ const DUST_VERT = /* glsl */`
   varying float vFade;
   void main() {
     vec3 p = position;
-    float t = uTime * 0.05 + aSeed * 43.7;
-    p.x += sin(t * 1.7 + aSeed * 6.28) * 0.6;
-    p.y += sin(t * 1.1 + aSeed * 12.4) * 0.45 + sin(t * 0.31) * 0.3;
-    p.z += cos(t * 1.3 + aSeed * 9.1) * 0.6;
+    float t = uTime * 0.03 + aSeed * 43.7;
+    p.x += sin(t * 1.7 + aSeed * 6.28) * 0.4;
+    p.y += sin(t * 1.1 + aSeed * 12.4) * 0.3 + sin(t * 0.31) * 0.2;
+    p.z += cos(t * 1.3 + aSeed * 9.1) * 0.4;
     vec4 mv = modelViewMatrix * vec4(p, 1.0);
     float dist = -mv.z;
-    vFade = smoothstep(1.5, 5.0, dist) * (1.0 - smoothstep(16.0, 30.0, dist));
-    float size = aSize * (150.0 / dist);
-    vFade *= smoothstep(0.7, 2.2, size);   // let sub-pixel motes dissolve instead of shimmering
+    vFade = smoothstep(1.5, 5.0, dist) * (1.0 - smoothstep(14.0, 26.0, dist));
+    float size = aSize * (140.0 / dist);
+    vFade *= smoothstep(0.7, 2.2, size);   // sub-pixel motes dissolve instead of shimmering
     gl_PointSize = max(size, 1.0);
     gl_Position = projectionMatrix * mv;
   }
@@ -60,7 +60,7 @@ const DUST_FRAG = /* glsl */`
   }
 `;
 
-export function makeDust({ count = 400, box = [10, 8, 20], center = [0, 0, 0], opacity = 0.5, map }) {
+export function makeDust({ count = 120, box = [6, 12, 6], center = [0, 0, 0], opacity = 0.3, map }) {
   const geo = new THREE.BufferGeometry();
   const positions = new Float32Array(count * 3);
   const seeds = new Float32Array(count);
@@ -70,7 +70,7 @@ export function makeDust({ count = 400, box = [10, 8, 20], center = [0, 0, 0], o
     positions[i * 3 + 1] = center[1] + (Math.random() - 0.5) * box[1];
     positions[i * 3 + 2] = center[2] + (Math.random() - 0.5) * box[2];
     seeds[i] = Math.random();
-    sizes[i] = 0.16 + Math.random() * 0.55;
+    sizes[i] = 0.12 + Math.random() * 0.4;
   }
   geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   geo.setAttribute('aSeed', new THREE.BufferAttribute(seeds, 1));
@@ -94,16 +94,13 @@ export function makeDust({ count = 400, box = [10, 8, 20], center = [0, 0, 0], o
   return points;
 }
 
-// ── god ray cone ───────────────────────────────────────────────
+// ── light shaft cone ───────────────────────────────────────────
 
 const RAY_VERT = /* glsl */`
   varying vec2 vUv;
-  varying vec3 vWorldPos;
   void main() {
     vUv = uv;
-    vec4 wp = modelMatrix * vec4(position, 1.0);
-    vWorldPos = wp.xyz;
-    gl_Position = projectionMatrix * viewMatrix * wp;
+    gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0);
   }
 `;
 
@@ -112,7 +109,6 @@ const RAY_FRAG = /* glsl */`
   uniform float uIntensity;
   uniform float uTime;
   varying vec2 vUv;
-  varying vec3 vWorldPos;
 
   float hash(vec2 p){ return fract(sin(dot(p, vec2(41.3, 289.1))) * 43758.5453); }
   float noise(vec2 p){
@@ -123,17 +119,17 @@ const RAY_FRAG = /* glsl */`
   }
 
   void main() {
-    // vUv.y: 1 at apex (top) → 0 at base
-    float along = pow(vUv.y, 1.6);                       // bright at source, dissolving downward
-    float edge = sin(vUv.x * 3.14159);                   // soft at silhouette edges
-    edge = pow(edge, 1.6);
-    float flicker = 0.75 + 0.25 * noise(vec2(vUv.x * 6.0 + uTime * 0.03, vUv.y * 3.0 - uTime * 0.05));
-    float a = along * edge * flicker * uIntensity;
+    // vUv.y: 1 at apex (source) → 0 at base
+    float along = pow(vUv.y, 1.7);                       // bright at source, dissolving
+    float edge = sin(vUv.x * 3.14159);                   // soft silhouette edges
+    edge = pow(edge, 2.0);
+    float drift = 0.82 + 0.18 * noise(vec2(vUv.x * 5.0 + uTime * 0.02, vUv.y * 3.0 - uTime * 0.03));
+    float a = along * edge * drift * uIntensity;
     gl_FragColor = vec4(uColor * a, a);
   }
 `;
 
-export function makeRay({ topRadius = 0.4, bottomRadius = 3.2, height = 16, color = 0xfff0d8, intensity = 0.35 }) {
+export function makeRay({ topRadius = 0.4, bottomRadius = 3.2, height = 16, color = 0xfff0d8, intensity = 0.2 }) {
   const geo = new THREE.CylinderGeometry(topRadius, bottomRadius, height, 24, 1, true);
   const mat = new THREE.ShaderMaterial({
     vertexShader: RAY_VERT,
@@ -153,27 +149,9 @@ export function makeRay({ topRadius = 0.4, bottomRadius = 3.2, height = 16, colo
   return mesh;
 }
 
-// ── floor light pool ───────────────────────────────────────────
-
-export function makePool({ radius = 4, color = 0xfff0d8, opacity = 0.22, map }) {
-  const geo = new THREE.CircleGeometry(radius, 40);
-  const mat = new THREE.MeshBasicMaterial({
-    map,
-    color,
-    transparent: true,
-    opacity,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-  });
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.rotation.x = -Math.PI / 2;
-  mesh.renderOrder = 4;
-  return mesh;
-}
-
 // ── post pass ──────────────────────────────────────────────────
-// scene → HDR target → grade: ACES tone, warm/cool split, grain,
-// vignette, gentle aberration, entrance black and finale white.
+// scene → HDR target → grade: ACES tone, a gentle warm/cool split,
+// near-invisible grain, quiet vignette, entrance black.
 
 const POST_VERT = /* glsl */`
   varying vec2 vUv;
@@ -189,9 +167,7 @@ const POST_FRAG = /* glsl */`
   uniform float uTime;
   uniform float uGrain;
   uniform float uVignette;
-  uniform float uWhite;    // finale white-out
   uniform float uBlack;    // entrance fade
-  uniform float uAberration;
   uniform float uExposure;
   varying vec2 vUv;
 
@@ -209,33 +185,30 @@ const POST_FRAG = /* glsl */`
     vec2 fromCenter = uv - 0.5;
     float r2 = dot(fromCenter, fromCenter);
 
-    // chromatic aberration, stronger at the frame edge
-    float ab = uAberration * r2;
-    vec3 col;
-    col.r = texture2D(tScene, uv + fromCenter * ab).r;
-    col.g = texture2D(tScene, uv).g;
-    col.b = texture2D(tScene, uv - fromCenter * ab).b;
+    vec3 col = texture2D(tScene, uv).rgb;
 
     // tone map (scene is rendered linear)
     col = aces(col * uExposure);
 
-    // split tone: cool shadows, ivory highlights
+    // split tone: shadows drift cool, highlights toward aged ivory
     float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
-    col = mix(col * vec3(0.965, 0.985, 1.03), col * vec3(1.04, 1.0, 0.94), smoothstep(0.05, 0.55, lum));
+    col = mix(col * vec3(0.972, 0.988, 1.025), col * vec3(1.03, 1.0, 0.955), smoothstep(0.05, 0.55, lum));
+
+    // shadows never crush to zero — the dark stays material
+    col = col * 0.985 + vec3(0.0075, 0.0068, 0.006);
 
     // vignette
-    float vig = 1.0 - uVignette * smoothstep(0.12, 0.62, r2);
+    float vig = 1.0 - uVignette * smoothstep(0.14, 0.65, r2);
     col *= vig;
 
-    // grain
+    // grain — barely there
     float g = hash(gl_FragCoord.xy + vec2(fract(uTime * 0.37) * 311.7, fract(uTime * 0.71) * 173.3)) - 0.5;
     col += g * uGrain * (1.0 - lum * 0.6);
 
     // linear → sRGB
     col = pow(max(col, 0.0), vec3(1.0 / 2.2));
 
-    // finale white / entrance black
-    col = mix(col, vec3(0.93, 0.915, 0.885), uWhite);
+    // entrance black
     col = mix(col, vec3(0.0), uBlack);
 
     gl_FragColor = vec4(col, 1.0);
@@ -259,12 +232,10 @@ export class PostPass {
       uniforms: {
         tScene: { value: this.target.texture },
         uTime: { value: 0 },
-        uGrain: { value: 0.04 },
-        uVignette: { value: 0.45 },
-        uWhite: { value: 0 },
+        uGrain: { value: 0.016 },
+        uVignette: { value: 0.30 },
         uBlack: { value: 1 },
-        uAberration: { value: 0.003 },
-        uExposure: { value: 2.0 },
+        uExposure: { value: 1.7 },
       },
       depthTest: false,
       depthWrite: false,

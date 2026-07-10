@@ -1,111 +1,103 @@
 // ═══════════════════════════════════════════════════════════════
 // KATABASIS — camera
-// One continuous shot, thirty storeys long. Scroll is the dolly.
+// Not a tour: a sequence of composed photographs. Each shot moves
+// once, slowly, then holds. Between shots the frame is still.
 // ═══════════════════════════════════════════════════════════════
 
 import * as THREE from 'three';
 
-// keyframes: [t, position, lookAt, fov]
-const KEYS = [
-  [0.000, [0, 3.1, 23.5],    [0, 6.6, 0],       55],
-  [0.055, [0, 3.4, 10.5],    [0, 0.6, -12],     55],
-  [0.110, [0, 0.8, -2.5],    [0, -4.6, -24],    57],
-  [0.140, [0, -1.8, -9.0],   [0, -6.0, -30],    58],
-  [0.175, [2.2, -3.2, -20],  [-1.5, -4.8, -44], 60],
-  [0.240, [-2.2, -3.8, -40], [1.5, -5.5, -62],  60],
-  [0.300, [0, -3.6, -57],    [0, -8.5, -76],    58],
-  [0.330, [0, -5.0, -66.5],  [0, -10.5, -95],   57],
-  [0.360, [0, -9.2, -75.5],  [0, -10.3, -92],   56],
-  [0.415, [2.6, -10.2, -87], [-6, -9.6, -92.5], 54],
-  [0.475, [-2.6, -10.6, -98],[6, -9.8, -103.5], 54],
-  [0.535, [2.0, -10.8, -110],[0, -9.9, -117.5], 52],
-  [0.590, [0, -10.8, -119.5],[0, -15.0, -138],  56],
-  [0.618, [0, -12.6, -126.5],[0, -17.5, -144],  57],
-  [0.645, [0, -16.4, -135.5],[0, -19.3, -152],  58],
-  [0.700, [2.6, -17.6, -152],[-2.5, -19.8, -166], 58],
-  [0.755, [0, -18.4, -176],  [0, -19.5, -194],  56],
-  [0.800, [0, -22.0, -189],  [0, -15.0, -214],  54],
-  [0.860, [-9.0, -19.0, -195],[0, -13.5, -214], 52],
-  [0.910, [6.5, -16.0, -197.5],[0, -12.0, -214], 50],
-  [0.950, [0, -12.5, -199.5],[0, -9.5, -214.5], 48],
-  [0.975, [0, -3.0, -210],   [0, 14.0, -214],   52],
-  [1.000, [0, 15.0, -213.2], [0, 44.0, -214],   60],
+// [t0, t1, pos0, pos1, look0, look1, fov0, fov1]
+// Gaps between shots hold the previous composition.
+const SHOTS = [
+  // I — the wall. A held exterior frame; barely breathing push-in.
+  [0.000, 0.105, [0, 4.6, 41], [0, 4.4, 31], [0, 7.6, 0], [0, 6.8, 0], 38, 39],
+  // approach the door
+  [0.115, 0.205, [0, 4.4, 31], [0, 3.6, 10], [0, 6.8, 0], [0, 4.8, -4], 39, 41],
+  // through the slit, into darkness
+  [0.215, 0.275, [0, 3.6, 10], [0, 3.2, -3.5], [0, 4.8, -4], [0, -1.5, -20], 41, 42],
+  // II — the stair, the blade of light crossing mid-frame
+  [0.285, 0.410, [0, 2.0, -11], [0, -8.2, -41], [0, -2.5, -26], [0, -12.5, -58], 42, 42],
+  // III — the veiled one appears, small, far, lit from her window
+  [0.435, 0.545, [0, -8.6, -48], [-2.6, -9.0, -57.5], [4.5, -8.4, -72], [5, -8.2, -72], 37, 35],
+  // approach — full figure, right of centre, air on the left
+  [0.575, 0.660, [-2.6, -9.0, -57.5], [-0.6, -9.3, -62.5], [5, -8.2, -72], [5, -8.1, -72], 35, 34],
+  // turn away, through the dark doorway
+  [0.680, 0.760, [0.2, -9.6, -78], [0, -10.2, -96], [0, -10.8, -100], [-0.5, -10.2, -112], 36, 36],
+  // IV — the wing: a slow lateral reveal under raking light
+  [0.775, 0.855, [-3.6, -9.9, -99], [2.4, -10.2, -99.8], [-1.4, -9.2, -112], [-0.9, -9.0, -112], 35, 35],
+  // descend toward the rotunda
+  [0.865, 0.900, [0, -12.2, -122], [0, -14.8, -133], [0, -12.5, -140], [0, -9.5, -158], 38, 39],
+  // V — the colossus, low angle, monumental
+  [0.905, 0.960, [0, -16.3, -136], [0, -15.7, -143.5], [0, -9.5, -158], [0, -7.8, -158], 40, 42],
+  // VI — anabasis: the camera rises; the gaze goes to the oculus
+  [0.965, 1.000, [0, -15.7, -143.5], [0, -10.6, -145], [0, -7.8, -158], [0, 7.5, -158], 42, 45],
 ];
+
+const smooth = (t) => t * t * (3 - 2 * t);
+const lerp = (a, b, t) => a + (b - a) * t;
+const lerp3 = (a, b, t, out) => out.set(lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t));
 
 export class CameraRig {
   constructor(aspect) {
-    this.camera = new THREE.PerspectiveCamera(55, aspect, 0.1, 140);
-    this.posCurve = new THREE.CatmullRomCurve3(KEYS.map(k => new THREE.Vector3(...k[1])), false, 'centripetal', 0.5);
-    this.lookCurve = new THREE.CatmullRomCurve3(KEYS.map(k => new THREE.Vector3(...k[2])), false, 'centripetal', 0.5);
-    this.times = KEYS.map(k => k[0]);
-    this.fovs = KEYS.map(k => k[3]);
+    this.camera = new THREE.PerspectiveCamera(38, aspect, 0.1, 150);
     this._pos = new THREE.Vector3();
     this._look = new THREE.Vector3();
-    this._sway = new THREE.Vector3();
     this._up = new THREE.Vector3(0, 1, 0);
   }
 
-  // progress t → curve parameter u (keyframes are non-uniform in t)
-  _param(t) {
-    const times = this.times;
-    const n = times.length - 1;
-    if (t <= 0) return 0;
-    if (t >= 1) return 1;
-    for (let i = 1; i <= n; i++) {
-      if (t <= times[i]) {
-        const f = (t - times[i - 1]) / (times[i] - times[i - 1]);
-        return (i - 1 + f) / n;
+  _sample(t) {
+    let s = SHOTS[0], f = 0;
+    if (t <= SHOTS[0][0]) {
+      s = SHOTS[0]; f = 0;
+    } else if (t >= SHOTS[SHOTS.length - 1][1]) {
+      s = SHOTS[SHOTS.length - 1]; f = 1;
+    } else {
+      for (let i = 0; i < SHOTS.length; i++) {
+        const sh = SHOTS[i];
+        if (t < sh[0]) {                      // in the hold before this shot
+          s = SHOTS[Math.max(0, i - 1)]; f = 1;
+          break;
+        }
+        if (t <= sh[1]) {                     // inside this shot
+          s = sh; f = smooth((t - sh[0]) / (sh[1] - sh[0]));
+          break;
+        }
+        s = sh; f = 1;                        // past it — hold its end
       }
     }
-    return 1;
-  }
-
-  _fov(t) {
-    const times = this.times;
-    for (let i = 1; i < times.length; i++) {
-      if (t <= times[i]) {
-        const f = (t - times[i - 1]) / (times[i] - times[i - 1]);
-        return this.fovs[i - 1] + (this.fovs[i] - this.fovs[i - 1]) * f;
-      }
-    }
-    return this.fovs[this.fovs.length - 1];
+    lerp3(s[2], s[3], f, this._pos);
+    lerp3(s[4], s[5], f, this._look);
+    return lerp(s[6], s[7], f);
   }
 
   // px, py ∈ [-1, 1] pointer parallax; sway = idle drift amount
   update(t, px, py, swayTime, swayAmp) {
-    const u = this._param(t);
-    this.posCurve.getPoint(u, this._pos);
-    this.lookCurve.getPoint(u, this._look);
+    const fovBase = this._sample(t);
 
-    // idle breath — the shot is handheld by something very calm
-    this._sway.set(
-      Math.sin(swayTime * 0.24) * 0.32 + Math.sin(swayTime * 0.11) * 0.18,
-      Math.sin(swayTime * 0.17) * 0.2,
-      0
-    ).multiplyScalar(swayAmp);
+    // idle breath — the frame is handheld by something very calm
+    const sx = (Math.sin(swayTime * 0.22) * 0.20 + Math.sin(swayTime * 0.10) * 0.12) * swayAmp;
+    const sy = Math.sin(swayTime * 0.15) * 0.12 * swayAmp;
 
-    // pointer parallax — look around without leaving the path
-    const off = this._sway;
     this.camera.position.set(
-      this._pos.x + off.x + px * 0.7,
-      this._pos.y + off.y + py * -0.45,
+      this._pos.x + sx + px * 0.45,
+      this._pos.y + sy + py * -0.3,
       this._pos.z
     );
-    this._look.x += px * 1.6;
-    this._look.y += py * -1.0;
+    this._look.x += px * 1.1;
+    this._look.y += py * -0.7;
+    // portrait screens: aim lower so the subject sits in the upper
+    // frame and the copy owns the floor
+    if (this.camera.aspect < 0.75) this._look.y -= 2.2;
+    else if (this.camera.aspect < 1) this._look.y -= 0.9;
     this.camera.up.copy(this._up);
     this.camera.lookAt(this._look);
 
-    // portrait screens get a wider eye so the monuments still fit the frame
-    const portrait = this.camera.aspect < 0.75 ? 14 : this.camera.aspect < 1 ? 7 : 0;
-    const fov = this._fov(t) + portrait;
+    // portrait screens get a wider eye so the monuments still fit
+    const portrait = this.camera.aspect < 0.75 ? 13 : this.camera.aspect < 1 ? 7 : 0;
+    const fov = fovBase + portrait;
     if (Math.abs(this.camera.fov - fov) > 0.01) {
       this.camera.fov = fov;
       this.camera.updateProjectionMatrix();
     }
-  }
-
-  get depthMeters() {
-    return Math.max(0, -this.camera.position.y);
   }
 }

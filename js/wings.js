@@ -97,6 +97,17 @@ class WingSurface {
 
 function lerp(a, b, t) { return a + (b - a) * t; }
 
+// a single wing, frozen mid-gesture — the museum fragment
+export function buildWingFragment(material, { scale = 8, spread = 0.78, side = 1 } = {}) {
+  const group = new THREE.Group();
+  for (const layer of [0, 1]) {
+    const w = new WingSurface(side, layer, material);
+    w.deform(spread, scale);
+    group.add(w.mesh);
+  }
+  return group;
+}
+
 export class WingPair {
   constructor(material, scale = 10) {
     this.group = new THREE.Group();

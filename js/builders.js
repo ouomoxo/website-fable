@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 // KATABASIS — builders
-// Everything here is carved procedurally: columns with entasis,
-// stairs, plinths, ruins, and veiled figures draped by mathematics.
+// Stairs, plinths, and the veiled figures — a standing body under
+// cloth, modelled as a radial field with baked cavity shading.
 // (The wings live in wings.js.)
 // ═══════════════════════════════════════════════════════════════
 
@@ -9,120 +9,12 @@ import * as THREE from 'three';
 import { mergeGeometries } from './lib/BufferGeometryUtils.js';
 import { fbmFactory } from './materials.js';
 
-const fbm = fbmFactory(1234, 4);
-const fbmB = fbmFactory(777, 4);
-
 function seededRandom(seed) {
   let s = seed >>> 0;
   return () => {
     s = (s * 1664525 + 1013904223) >>> 0;
     return s / 4294967296;
   };
-}
-
-// ── fluted column ──────────────────────────────────────────────
-// Doric-inspired: entasis swell, 20 flutes, square abacus.
-
-export function buildColumn({ height = 11, radius = 0.55, flutes = 20 } = {}) {
-  const radial = flutes * 5;
-  const heightSeg = 24;
-  const shaftH = height * 0.86;
-  const shaft = new THREE.CylinderGeometry(1, 1, shaftH, radial, heightSeg, true);
-  const pos = shaft.attributes.position;
-  const v = new THREE.Vector3();
-  for (let i = 0; i < pos.count; i++) {
-    v.fromBufferAttribute(pos, i);
-    const y01 = v.y / shaftH + 0.5;                       // 0 bottom → 1 top
-    const theta = Math.atan2(v.z, v.x);
-    // entasis: slight swell at 1/3 height, taper toward capital
-    const entasis = 1 + 0.045 * Math.sin(y01 * Math.PI * 0.9) - 0.16 * y01;
-    // flutes: concave scallops
-    const flute = 1 - 0.055 * Math.pow(0.5 + 0.5 * Math.cos(theta * flutes), 0.8);
-    const r = radius * entasis * flute;
-    v.x = Math.cos(theta) * r;
-    v.z = Math.sin(theta) * r;
-    pos.setXYZ(i, v.x, v.y, v.z);
-  }
-  shaft.translate(0, shaftH / 2, 0);
-  shaft.computeVertexNormals();
-
-  // echinus (flared cushion) + abacus (square slab)
-  const echinus = new THREE.CylinderGeometry(radius * 1.18, radius * 0.82, height * 0.045, radial / 2);
-  echinus.translate(0, shaftH + height * 0.0225, 0);
-  const abacus = new THREE.BoxGeometry(radius * 2.7, height * 0.05, radius * 2.7);
-  abacus.translate(0, shaftH + height * 0.045 + height * 0.025, 0);
-  // base
-  const base = new THREE.CylinderGeometry(radius * 1.12, radius * 1.22, height * 0.05, radial / 2);
-  base.translate(0, height * 0.025, 0);
-  // fix: shaft should sit on base
-  shaft.translate(0, height * 0.05, 0);
-  echinus.translate(0, height * 0.05, 0);
-  abacus.translate(0, height * 0.05, 0);
-
-  const merged = mergeGeometries([shaft, echinus, abacus, base]);
-  merged.computeBoundingSphere();
-  [shaft, echinus, abacus, base].forEach((g) => g.dispose());
-  return merged;
-}
-
-// ── broken column (standing stump, jagged crown) ───────────────
-
-export function buildBrokenColumn({ height = 5, radius = 0.55, flutes = 20, seed = 1 } = {}) {
-  const rand = seededRandom(seed * 7919);
-  const radial = flutes * 4;
-  const heightSeg = 20;
-  const geo = new THREE.CylinderGeometry(1, 1, 1, radial, heightSeg, false);
-  const pos = geo.attributes.position;
-  const v = new THREE.Vector3();
-  const phase = rand() * 10;
-  for (let i = 0; i < pos.count; i++) {
-    v.fromBufferAttribute(pos, i);
-    const y01 = v.y + 0.5;
-    const theta = Math.atan2(v.z, v.x);
-    const flute = 1 - 0.055 * Math.pow(0.5 + 0.5 * Math.cos(theta * flutes), 0.8);
-    // jagged crown line
-    const crown = 1 - 0.22 * Math.pow(fbm(Math.cos(theta) * 1.5 + phase, Math.sin(theta) * 1.5), 1.2);
-    const yy = y01 * height * (y01 > 0.92 ? crown : 1);
-    const taper = 1 - 0.10 * y01;
-    let r = radius * flute * taper;
-    // chips near the break
-    if (y01 > 0.7) {
-      r -= radius * 0.25 * Math.max(0, fbm(theta * 2 + phase, yy * 0.8) - 0.55) * ((y01 - 0.7) / 0.3);
-    }
-    v.x = Math.cos(theta) * r;
-    v.z = Math.sin(theta) * r;
-    v.y = yy;
-    pos.setXYZ(i, v.x, v.y, v.z);
-  }
-  geo.computeVertexNormals();
-  geo.computeBoundingSphere();
-  return geo;
-}
-
-// ── fallen drum (a column section lying on the floor) ──────────
-
-export function buildDrum({ radius = 0.55, length = 1.6, flutes = 20, seed = 2 } = {}) {
-  const rand = seededRandom(seed * 104729);
-  const phase = rand() * 10;
-  const geo = new THREE.CylinderGeometry(radius, radius, length, flutes * 3, 6, false);
-  const pos = geo.attributes.position;
-  const v = new THREE.Vector3();
-  for (let i = 0; i < pos.count; i++) {
-    v.fromBufferAttribute(pos, i);
-    const theta = Math.atan2(v.z, v.x);
-    const rr = Math.hypot(v.x, v.z);
-    if (rr > 0.01) {
-      const flute = 1 - 0.05 * Math.pow(0.5 + 0.5 * Math.cos(theta * flutes), 0.8);
-      const chip = 1 - 0.12 * Math.max(0, fbmB(theta * 1.8 + phase, v.y * 1.2) - 0.5);
-      v.x = Math.cos(theta) * rr * flute * chip;
-      v.z = Math.sin(theta) * rr * flute * chip;
-    }
-    pos.setXYZ(i, v.x, v.y, v.z);
-  }
-  geo.rotateZ(Math.PI / 2);   // lie down
-  geo.computeVertexNormals();
-  geo.computeBoundingSphere();
-  return geo;
 }
 
 // ── stairs ─────────────────────────────────────────────────────
@@ -149,113 +41,144 @@ export function buildPlinth({ w = 2.2, h = 1.6, d = 2.2 } = {}) {
   mid.translate(0, h * 0.16 + h * 0.36, 0);
   const cap = new THREE.BoxGeometry(w * 1.15, h * 0.12, d * 1.15);
   cap.translate(0, h * 0.88 + h * 0.06, 0);
-  const merged = scaleUV(mergeGeometries([base, mid, cap]), Math.max(1, w / 1.4), Math.max(1, h / 1.4));
+  const merged = mergeGeometries([base, mid, cap]);
   [base, mid, cap].forEach((g) => g.dispose());
   merged.computeBoundingSphere();
   return merged;
 }
 
-// ── veiled figure ──────────────────────────────────────────────
-// A standing body under cloth, modelled as a radial field:
-// silhouette profile + draped folds. `pose` differentiates the
-// three: 'witness' (upright), 'orant' (arms raised), 'mourner'
-// (bowed head).
+export function scaleUV(geo, su, sv) {
+  const uv = geo.attributes.uv;
+  if (!uv) return geo;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * su, uv.getY(i) * sv);
+  return geo;
+}
 
-export function buildVeiledFigure({ height = 3.2, seed = 5, pose = 'witness' } = {}) {
+// ── veiled figure ──────────────────────────────────────────────
+// Silhouette profile + draped folds that wander diagonally, with
+// ambient occlusion baked into vertex colors so the cloth reads
+// under a single light. `pose`: 'witness' (bowed, veiled head),
+// 'nike' (headless — the body breaks off above the shoulders).
+
+export function buildVeiledFigure({ height = 3.2, seed = 5, pose = 'witness', detail = 1 } = {}) {
   const rand = seededRandom(seed * 31337);
   const phase = rand() * 20;
   const noise = fbmFactory(seed * 913 + 3, 4);
 
-  const radial = 112;
-  const rows = 150;
+  const radial = Math.max(96, Math.round(168 * detail));
+  const rows = Math.max(120, Math.round(230 * detail));
   const geo = new THREE.CylinderGeometry(1, 1, 1, radial, rows, true);
   const pos = geo.attributes.position;
   const v = new THREE.Vector3();
 
-  const bow = pose === 'mourner' ? 1 : pose === 'orant' ? 0.25 : pose === 'ascendant' ? -0.22 : 0.45;
-  const armLift = pose === 'orant' ? 1 : 0;
+  const isNike = pose === 'nike';
+  const bow = pose === 'mourner' ? 1 : isNike ? -0.20 : 0.45;
+  const yTop = isNike ? 0.80 : 1.0;      // nike: the profile ends at the break
   const S = height;
+  const W = (S / yTop) * 0.54 * (isNike ? 0.8 : 1);
+  // jagged break line, shared by the body's top rows and the cap rim
+  const jagAmp = 0.045 * S;
+  const jag = (theta) => (noise(Math.cos(theta) * 1.7 + phase, Math.sin(theta) * 1.7) - 0.5) * 2 * jagAmp;
 
-  const W = S * 0.56;   // breadth factor — monumental, not slender
-
-  // silhouette: radius of the veiled body at normalized height y (0 floor → 1 crown)
+  // silhouette: radius of the veiled body at normalized height y
   function bodyR(y) {
-    const head     = 0.085 * gauss(y, 0.955, 0.075);
-    const neckDip  = -0.07 * gauss(y, 0.85, 0.05);
-    const shoulder = 0.155 * gauss(y, 0.77, 0.10);
-    const chest    = 0.07 * gauss(y, 0.63, 0.13);
-    const waist    = -0.03 * gauss(y, 0.50, 0.09);
-    const hip      = 0.065 * gauss(y, 0.40, 0.12);
-    const pool     = 0.17 * Math.pow(Math.max(0, 1 - y / 0.18), 1.5);  // cloth pooling at the base
-    const trunk    = 0.185 - 0.028 * y;
+    const head     = 0.066 * gauss(y, 0.945, 0.078);
+    const neckDip  = -0.072 * gauss(y, 0.845, 0.052);
+    const shoulder = 0.180 * gauss(y, 0.760, 0.105);
+    const chest    = 0.060 * gauss(y, 0.62, 0.125);
+    const waist    = -0.020 * gauss(y, 0.50, 0.085);
+    const hip      = 0.062 * gauss(y, 0.385, 0.12);
+    const pool     = 0.165 * Math.pow(Math.max(0, 1 - y / 0.17), 1.55);
+    const trunk    = 0.184 - 0.024 * y;
     return (trunk + head + neckDip + shoulder + chest + waist + hip + pool) * W;
   }
 
-  function gauss(x, c, w) {
-    const t = (x - c) / w;
-    return Math.exp(-t * t);
-  }
+  const nF = 6 + (seed % 2);
+  const colors = new Float32Array(pos.count * 3);
+  const sway = (y) => 0.030 * W * Math.sin(y * Math.PI * 0.9);   // contrapposto drift
 
   for (let i = 0; i < pos.count; i++) {
     v.fromBufferAttribute(pos, i);
     const y01 = Math.min(1, Math.max(0, v.y + 0.5));
+    const yb = y01 * yTop;                 // position on the notional full body
     const theta = Math.atan2(v.z, v.x);
 
-    let r = bodyR(y01);
+    let r = bodyR(yb);
 
-    // raised arms (orant): two vertical ridges rising past the shoulders
-    if (armLift > 0) {
-      const armA = gauss(angDist(theta, 2.35), 0, 0.30) + gauss(angDist(theta, -2.35 + Math.PI * 2), 0, 0.30);
-      r += armLift * 0.10 * W * armA * gauss(y01, 0.86, 0.14);
-    }
+    // folds vanish over the head and neck so the veil reads taut
+    const crownFade = isNike ? 1 : 1 - smoothstep01((yb - 0.78) / 0.14);
 
-    // folds vanish at the crown so the veil reads taut over the head
-    const crownFade = 1 - smoothstep01((y01 - 0.86) / 0.10);
+    // major folds: narrow ridges, wide valleys, drifting diagonally —
+    // taut over the head and shoulders, cascading toward the hem
+    const swirl = (noise(theta * 0.7 + phase, yb * 1.6) - 0.5) * 2.1 * (1 - yb * 0.55);
+    const th2 = theta + swirl + (1 - yb) * 0.5;
+    const azim = 0.6 + 0.75 * noise(Math.cos(theta) * 1.1 + phase, Math.sin(theta) * 1.3);
+    const taper = isNike ? 1 : 1 - 0.38 * smoothstep01((yb - 0.55) / 0.35);
+    const ridge = Math.pow(0.5 + 0.5 * Math.sin(th2 * nF + phase), 1.6);
+    const depth = (isNike ? 0.105 : 0.082) * W * (0.22 + 0.78 * Math.pow(1 - yb, 1.15)) * crownFade * azim * taper;
+    r += depth * (ridge - 0.42);
 
-    // drapery folds: vertical ridges, deeper toward the hem, pinched at shoulders
-    const foldFreq = 7 + (seed % 3);
-    const foldDepth = 0.105 * W * (0.3 + 0.7 * Math.pow(1 - y01, 1.1)) * crownFade;
-    const fold = Math.pow(0.5 + 0.5 * Math.sin(theta * foldFreq + phase + noise(theta * 1.2, y01 * 2.5) * 4.0), 1.4);
-    r += foldDepth * (fold - 0.5);
-
-    // secondary finer pleats between the deep folds
-    const pleat = Math.pow(0.5 + 0.5 * Math.sin(theta * (foldFreq * 2.6) - phase * 1.7 + noise(theta * 2.1, y01 * 4.0) * 3.0), 2.0);
-    r += 0.032 * W * (pleat - 0.5) * (0.4 + 0.6 * (1 - y01)) * crownFade;
+    // secondary pleats between the deep folds
+    const pleat = Math.pow(0.5 + 0.5 * Math.sin(th2 * nF * 2.7 - phase * 1.7 + noise(theta * 2.1, yb * 4.0) * 3.2), 2.4);
+    r += 0.020 * W * (pleat - 0.5) * (0.35 + 0.65 * (1 - yb)) * crownFade;
 
     // fine cloth ripple
-    r += 0.014 * W * (noise(theta * 4 + phase, y01 * 9) - 0.5) * crownFade;
+    r += 0.008 * W * (noise(theta * 4 + phase, yb * 9) - 0.5) * crownFade;
 
-    v.x = Math.cos(theta) * r;
-    v.z = Math.sin(theta) * r * 0.86;   // bodies are narrower front-to-back
+    const zScale = 0.80 + 0.10 * Math.pow(1 - yb, 1.3);
+    v.x = Math.cos(theta) * r + sway(yb);
+    v.z = Math.sin(theta) * r * zScale;
     v.y = y01 * S;
+    if (isNike) v.y += jag(theta) * smoothstep01((y01 - 0.88) / 0.12);
 
-    // head bow: crown leans forward (−z), spine curves gently
-    const lean = Math.pow(Math.max(0, (y01 - 0.55) / 0.45), 2.2);
+    // head bow / lift: crown leans, spine curves gently
+    const lean = Math.pow(Math.max(0, (yb - 0.55) / 0.45), 2.2);
     v.z -= bow * 0.31 * W * lean;
-    v.y -= bow * 0.05 * S * lean * lean;
+    v.y -= Math.abs(bow) * 0.05 * S * lean * lean;
 
     pos.setXYZ(i, v.x, v.y, v.z);
-  }
 
-  // crown cap: small dome sealing the top, radius matched to the taut veil
-  const cap = new THREE.SphereGeometry(1, radial, 12, 0, Math.PI * 2, 0, Math.PI * 0.5);
+    // baked cavity shading: valleys darker, hem grounded, neck shaded
+    const cav = (1 - ridge) * crownFade;
+    const pleatCav = (1 - pleat) * crownFade;
+    let ao = 1 - (0.30 * cav + 0.10 * pleatCav) * (0.35 + 0.65 * (1 - yb));
+    if (!isNike) ao *= 1 - 0.16 * gauss(yb, 0.845, 0.05);
+    ao *= 0.86 + 0.14 * smoothstep01(yb / 0.09);
+    colors[i * 3] = colors[i * 3 + 1] = colors[i * 3 + 2] = ao;
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+  // cap: for the veiled head a taut dome; for the nike a raw break
+  const capSegs = 12;
+  const cap = new THREE.SphereGeometry(1, radial, capSegs, 0, Math.PI * 2, 0, Math.PI * 0.5);
   const cpos = cap.attributes.position;
-  const topR = bodyR(1.0);
+  const topR = bodyR(yTop);
+  const leanTop = Math.pow(Math.max(0, (yTop - 0.55) / 0.45), 2.2);
   for (let i = 0; i < cpos.count; i++) {
     v.fromBufferAttribute(cpos, i);
-    v.x *= topR;
-    v.z *= topR * 0.86;                 // match the body's elliptical section
-    v.y = v.y * topR * 0.55 + S;
-    // apply same bow to the cap
-    v.z -= bow * 0.31 * W;
-    v.y -= bow * 0.05 * S;
+    const theta = Math.atan2(v.z, v.x);
+    const rimness = Math.hypot(v.x, v.z);          // 1 at rim → 0 at centre
+    v.x = v.x * topR + sway(yTop);
+    v.z *= topR * 0.80;
+    if (isNike) {
+      // broken stone: nearly flat, jagged at the rim, dished toward centre
+      v.y = S + jag(theta) * rimness
+          - (1 - rimness) * 0.035 * S
+          + (noise(v.x * 2.1 + phase, v.z * 2.1) - 0.5) * 0.05 * S * (1 - rimness);
+    } else {
+      v.y = v.y * topR * 0.36 + S;
+    }
+    v.z -= bow * 0.31 * W * leanTop;
+    v.y -= Math.abs(bow) * 0.05 * S * leanTop * leanTop;
     cpos.setXYZ(i, v.x, v.y, v.z);
   }
+  const capColors = new Float32Array(cpos.count * 3).fill(isNike ? 0.16 : 0.97);
+  cap.setAttribute('color', new THREE.BufferAttribute(capColors, 3));
 
   geo.computeVertexNormals();
   weldSeamNormals(geo, radial, rows);
   cap.computeVertexNormals();
-  weldSeamNormals(cap, radial, 12);
+  weldSeamNormals(cap, radial, capSegs);
 
   const merged = mergeGeometries([geo, cap]);
   geo.dispose();
@@ -264,8 +187,7 @@ export function buildVeiledFigure({ height = 3.2, seed = 5, pose = 'witness' } =
   return merged;
 }
 
-// average normals along the theta seam of a cylinder/sphere grid so
-// cloth reads as one continuous surface
+// average normals along the theta seam so cloth reads as one surface
 function weldSeamNormals(geo, radial, rows) {
   const n = geo.attributes.normal;
   const cols = radial + 1;
@@ -283,81 +205,12 @@ function weldSeamNormals(geo, radial, rows) {
   n.needsUpdate = true;
 }
 
-function angDist(a, b) {
-  let d = a - b;
-  while (d > Math.PI) d -= Math.PI * 2;
-  while (d < -Math.PI) d += Math.PI * 2;
-  return d;
+function gauss(x, c, w) {
+  const t = (x - c) / w;
+  return Math.exp(-t * t);
 }
 
 function smoothstep01(t) {
   t = Math.min(1, Math.max(0, t));
   return t * t * (3 - 2 * t);
-}
-
-// ── architrave beam ────────────────────────────────────────────
-
-export function scaleUV(geo, su, sv) {
-  const uv = geo.attributes.uv;
-  if (!uv) return geo;
-  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * su, uv.getY(i) * sv);
-  return geo;
-}
-
-export function buildArchitrave({ length = 10, h = 1.1, d = 1.2 } = {}) {
-  const beam = new THREE.BoxGeometry(length, h * 0.7, d);
-  beam.translate(0, h * 0.35, 0);
-  const crown = new THREE.BoxGeometry(length, h * 0.3, d * 1.15);
-  crown.translate(0, h * 0.85, 0);
-  const merged = scaleUV(mergeGeometries([beam, crown]), length / 2.5, 1);
-  [beam, crown].forEach((g) => g.dispose());
-  merged.computeBoundingSphere();
-  return merged;
-}
-
-// ── rubble field ───────────────────────────────────────────────
-
-export function buildRubble({ count = 40, area = 18, seed = 3 } = {}) {
-  const rand = seededRandom(seed * 2654435761);
-  const parts = [];
-  for (let i = 0; i < count; i++) {
-    const s = 0.07 + rand() * rand() * 0.34;
-    const g = new THREE.IcosahedronGeometry(s, 1);          // keep it angular — broken stone, not pebbles
-    const p = g.attributes.position;
-    const v = new THREE.Vector3();
-    const ph = rand() * 10;
-    for (let j = 0; j < p.count; j++) {
-      v.fromBufferAttribute(p, j);
-      const d = 1 + 0.55 * (fbm(v.x * 2.2 + ph, v.y * 2.2 - ph) - 0.5);
-      v.multiplyScalar(d);
-      v.y *= 0.72;                                          // flattened shards
-      p.setXYZ(j, v.x, v.y, v.z);
-    }
-    const a = rand() * Math.PI * 2;
-    const rr = Math.pow(rand(), 0.65) * area;               // cluster toward the fall line
-    g.rotateX(rand() * Math.PI);
-    g.rotateY(rand() * Math.PI);
-    g.translate(Math.cos(a) * rr, s * 0.22, Math.sin(a) * rr * 0.7);
-    parts.push(g);
-  }
-  const merged = mergeGeometries(parts);
-  parts.forEach((g) => g.dispose());
-  merged.computeVertexNormals();
-  merged.computeBoundingSphere();
-  return merged;
-}
-
-// ── pediment (triangular gable fragment) ───────────────────────
-
-export function buildPediment({ width = 9, height = 2.2, depth = 1.0 } = {}) {
-  const shape = new THREE.Shape();
-  shape.moveTo(-width / 2, 0);
-  shape.lineTo(width / 2, 0);
-  shape.lineTo(width * 0.06, height);
-  shape.lineTo(-width * 0.1, height * 0.92);
-  shape.closePath();
-  const geo = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false });
-  geo.computeVertexNormals();
-  geo.computeBoundingSphere();
-  return geo;
 }

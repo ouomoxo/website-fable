@@ -1,47 +1,44 @@
 // ═══════════════════════════════════════════════════════════════
 // KATABASIS — world
-// Six chambers, descending. Coordinates are metres; the surface
-// is y = 0 and everything below is memory.
+// Five rooms, descending. One wall, one stair, one veiled figure,
+// one wing, one winged colossus. Coordinates are metres; the
+// surface is y = 0 and everything below is memory.
 // ═══════════════════════════════════════════════════════════════
 
 import * as THREE from 'three';
 import { createMaterials } from './materials.js';
-import {
-  buildColumn, buildBrokenColumn, buildDrum, buildStairs, buildPlinth,
-  buildVeiledFigure, buildArchitrave, buildRubble, buildPediment, scaleUV,
-} from './builders.js';
-import { makeGlowTexture, makeDust, makeRay, makePool } from './effects.js';
-import { WingPair } from './wings.js';
+import { buildStairs, buildPlinth, buildVeiledFigure, scaleUV } from './builders.js';
+import { makeGlowTexture, makeDust, makeRay } from './effects.js';
+import { WingPair, buildWingFragment } from './wings.js';
+
+const V3 = THREE.Vector3;
 
 export class World {
   constructor(renderer, quality) {
     this.renderer = renderer;
     this.quality = quality;
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.FogExp2(0x070605, 0.03);
-    this.chambers = [];         // { group, range:[a,b] }
+    this.scene.background = new THREE.Color(0x060504);
+    this.scene.fog = new THREE.FogExp2(0x080606, 0.02);
+    this.chambers = [];
     this.dusts = [];
     this.rays = [];
-    this.veiled = [];           // { spot, base, pos: Vector3, boost }
-    this.wingSpread = 0;
-    this._spreadCurrent = -1;
+    this.veiled = [];           // { spot, base, pos, boost } — attention light
     this.time = 0;
     this.glowTex = makeGlowTexture();
-    this.buildSteps = [];       // [label, fn] — consumed by the loader
+    this.buildSteps = [];
     this._plan();
   }
 
-  // the loader executes these one per frame so the bar means something
   _plan() {
     this.buildSteps = [
-      ['QUARRYING MARBLE',    () => { this.materials = createMaterials(this.renderer, this.quality); }],
-      ['LAYING FOUNDATIONS',  () => this._buildFloors()],
-      ['RAISING THE GATE',    () => this._buildThreshold()],
-      ['RAISING FORTY COLUMNS', () => this._buildProcession()],
-      ['SHROUDING THE GODS',  () => this._buildVeiled()],
-      ['LETTING THE ROOF FALL', () => this._buildFallen()],
-      ['FEATHERING THE WINGS', () => this._buildWinged()],
-      ['WAKING THE DUST',     () => this._buildAtmosphere()],
+      () => { this.materials = createMaterials(this.renderer, this.quality); },
+      () => this._buildThreshold(),
+      () => this._buildStair(),
+      () => this._buildVeiled(),
+      () => this._buildWing(),
+      () => this._buildRotunda(),
+      () => this._buildAtmosphere(),
     ];
   }
 
@@ -53,492 +50,405 @@ export class World {
     return g;
   }
 
-  // ── floors, stairs, walls ────────────────────────────────────
-
-  _buildFloors() {
-    const { floor, stone } = this.materials;
-    const mk = (w, d, x, y, z, group) => {
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), floor);
-      m.rotation.x = -Math.PI / 2;
-      m.position.set(x, y, z);
-      m.receiveShadow = true;
-      group.add(m);
-      return m;
-    };
-
-    // chamber groups (progress ranges padded generously for visibility culling)
-    this.gThreshold  = this._chamber([-0.1, 0.22]);
-    this.gProcession = this._chamber([0.02, 0.40]);
-    this.gVeiled     = this._chamber([0.28, 0.66]);
-    this.gFallen     = this._chamber([0.54, 0.83]);
-    this.gRotunda    = this._chamber([0.72, 1.1]);
-
-    mk(60, 36, 0, 0, 18, this.gThreshold);                       // plaza — ends where the stair begins
-    mk(26, 49.6, 0, -6, -39.2, this.gProcession);                // corridor
-    mk(36, 43.2, 0, -13, -102.4, this.gVeiled);                  // veiled hall
-    mk(44, 39.2, 0, -20, -160.4, this.gFallen);                  // fallen hall
-
-    const rotFloor = new THREE.Mesh(new THREE.CircleGeometry(26, 64), floor);
-    rotFloor.rotation.x = -Math.PI / 2;
-    rotFloor.position.set(0, -24, -214);
-    rotFloor.receiveShadow = true;
-    this.gRotunda.add(rotFloor);
-
-    // stairs
-    const s1 = new THREE.Mesh(buildStairs({ width: 14, steps: 12, rise: 0.5, run: 1.2 }), stone);
-    s1.position.set(0, 0, 0);
-    this.gProcession.add(s1);
-
-    const s2 = new THREE.Mesh(buildStairs({ width: 16, steps: 14, rise: 0.5, run: 1.2 }), stone);
-    s2.position.set(0, -6, -64);
-    this.gVeiled.add(s2);
-
-    const s3 = new THREE.Mesh(buildStairs({ width: 14, steps: 14, rise: 0.5, run: 1.2 }), stone);
-    s3.position.set(0, -13, -124);
-    this.gFallen.add(s3);
-
-    const s4 = new THREE.Mesh(buildStairs({ width: 10, steps: 8, rise: 0.5, run: 1.2 }), stone);
-    s4.position.set(0, -20, -180);
-    this.gRotunda.add(s4);
-
-    // corridor walls — dark planes that swallow the light pools
-    const wallMat = new THREE.MeshStandardMaterial({ color: 0x121009, roughness: 0.95 });
-    this.wallMat = wallMat;
-    const mkWall = (w, h, x, y, z, ry, group) => {
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), wallMat);
-      m.position.set(x, y, z);
-      m.rotation.y = ry;
-      group.add(m);
-    };
-    mkWall(52, 18, -12.5, 2, -39.5, Math.PI / 2, this.gProcession);
-    mkWall(52, 18, 12.5, 2, -39.5, -Math.PI / 2, this.gProcession);
-    mkWall(38, 20, -17.5, -4, -102.5, Math.PI / 2, this.gVeiled);
-    mkWall(38, 20, 17.5, -4, -102.5, -Math.PI / 2, this.gVeiled);
-    mkWall(36, 16, 0, -5, -124.5, 0, this.gVeiled);              // hall end wall
-    mkWall(46, 22, -21.5, -10, -160, Math.PI / 2, this.gFallen);
-    mkWall(46, 22, 21.5, -10, -160, -Math.PI / 2, this.gFallen);
-
-    // rotunda drum wall
-    const drumGeo = new THREE.CylinderGeometry(25, 25, 52, 48, 1, true);
-    const drum = new THREE.Mesh(drumGeo, new THREE.MeshStandardMaterial({
-      color: 0x14110c, roughness: 0.92, side: THREE.BackSide,
-    }));
-    drum.position.set(0, 2, -214);
-    this.gRotunda.add(drum);
+  _box(w, h, d, x, y, z, mat, group, { ry = 0, cast = false, receive = true, uv = null } = {}) {
+    let geo = new THREE.BoxGeometry(w, h, d);
+    if (uv) geo = scaleUV(geo, uv[0], uv[1]);
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, y, z);
+    m.rotation.y = ry;
+    m.castShadow = cast;
+    m.receiveShadow = receive;
+    group.add(m);
+    return m;
   }
 
-  // ── I · threshold ────────────────────────────────────────────
+  _floor(w, d, x, y, z, mat, group) {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mat);
+    m.rotation.x = -Math.PI / 2;
+    m.position.set(x, y, z);
+    m.receiveShadow = true;
+    group.add(m);
+    return m;
+  }
+
+  // a light shaft with a body, aimed from a source to a target
+  _shaft(group, from, to, r0, r1, color, intensity) {
+    const dir = new V3().subVectors(to, from);
+    const len = dir.length();
+    const ray = makeRay({ topRadius: r0, bottomRadius: r1, height: len, color, intensity });
+    ray.position.copy(from).addScaledVector(dir, 0.5);
+    ray.quaternion.setFromUnitVectors(new V3(0, 1, 0), dir.normalize().negate());
+    group.add(ray);
+    this.rays.push(ray);
+    return ray;
+  }
+
+  // a narrow emissive opening — the visible source of a light
+  _slit(group, w, h, x, y, z, ry, color = 0xf3e2c2, opacity = 1) {
+    const m = new THREE.Mesh(
+      new THREE.PlaneGeometry(w, h),
+      new THREE.MeshBasicMaterial({ color, transparent: opacity < 1, opacity, fog: false })
+    );
+    m.position.set(x, y, z);
+    m.rotation.y = ry;
+    group.add(m);
+    return m;
+  }
+
+  // ── I · threshold — a blind monumental wall, one lit slit ────
 
   _buildThreshold() {
-    const { marble, stone } = this.materials;
-    const colGeo = buildColumn({ height: 13, radius: 0.95 });
-    this.columnGeo13 = colGeo;
+    const { wall, floor, marble } = this.materials;
+    const g = this.gThreshold = this._chamber([-0.1, 0.30]);
 
-    const gate = new THREE.Group();
-    for (const x of [-5.4, 5.4]) {
-      const c = new THREE.Mesh(colGeo, marble);
-      c.position.set(x, 0, 0);
-      c.castShadow = true;
-      gate.add(c);
+    // plaza
+    this._floor(76, 50, 0, 0, 25, floor, g);
+    // vestibule floor behind the wall
+    this._floor(12, 12, 0, 0, -6, floor, g);
+
+    // the wall: two blind panels + lintel over a tall narrow slit
+    const T = 2.6;                                     // thickness
+    const SLIT_W = 3.0, SLIT_H = 9.5, H = 26, W = 76;
+    const panelW = (W - SLIT_W) / 2;
+    this._box(panelW, H, T, -(SLIT_W + panelW) / 2, H / 2, 0, wall, g, { cast: true, uv: [4, 3] });
+    this._box(panelW, H, T, (SLIT_W + panelW) / 2, H / 2, 0, wall, g, { cast: true, uv: [4, 3] });
+    this._box(SLIT_W + 3.6, H - SLIT_H, T, 0, SLIT_H + (H - SLIT_H) / 2, 0, wall, g, { cast: true, uv: [1, 2] });
+
+    // marble door reveal — a shallow frame, slightly proud of the wall
+    this._box(0.9, SLIT_H + 0.9, T + 0.5, -(SLIT_W / 2 + 0.37), (SLIT_H + 0.9) / 2, 0.35, marble, g, { cast: true, uv: [0.4, 3] });
+    this._box(0.9, SLIT_H + 0.9, T + 0.5, (SLIT_W / 2 + 0.37), (SLIT_H + 0.9) / 2, 0.35, marble, g, { cast: true, uv: [0.4, 3] });
+    this._box(SLIT_W + 1.8, 0.9, T + 0.5, 0, SLIT_H + 0.45 + 0.9 / 2, 0.35, marble, g, { cast: true, uv: [2, 0.4] });
+
+    // a low threshold step
+    this._box(SLIT_W + 2.4, 0.35, 2.4, 0, 0.175, 1.6, marble, g, { uv: [2, 0.3] });
+
+    // vestibule: a short dark passage before the stair goes down
+    this._box(1.8, 15, 11, -4.1, 6.5, -5.5, wall, g, { uv: [1.2, 1.6] });
+    this._box(1.8, 15, 11, 4.1, 6.5, -5.5, wall, g, { uv: [1.2, 1.6] });
+    this._box(12, 1.6, 12, 0, 13.3, -5.5, wall, g, { uv: [1.4, 1.4] });
+
+    // warm light from inside, spilling through the slit onto the plaza
+    const inner = new THREE.SpotLight(0xffdfb0, 480, 70, 0.42, 0.55, 1.4);
+    inner.position.set(0, 6.5, -7.5);
+    inner.target.position.set(0, 0, 34);
+    inner.castShadow = this.quality.shadows;
+    if (inner.castShadow) {
+      inner.shadow.mapSize.set(1024, 1024);
+      inner.shadow.bias = -0.002;
+      inner.shadow.normalBias = 0.04;
     }
-    const arch = new THREE.Mesh(buildArchitrave({ length: 14.6, h: 1.5, d: 2.1 }), marble);
-    arch.position.set(0, 13.1, 0);
-    gate.add(arch);
-    const ped = new THREE.Mesh(scaleUV(buildPediment({ width: 15, height: 3.0, depth: 1.9 }), 0.4, 0.4), stone);
-    ped.position.set(0, 14.65, -0.95);
-    gate.add(ped);
-    this.gThreshold.add(gate);
+    g.add(inner, inner.target);
+    this.thresholdInner = inner;
 
-    // a ruined colonnade leads across the plaza to the gate
-    const stumps = [
-      [-11, 6, 5.6, 11], [11, 7.5, 3.2, 12], [-11.5, 13.5, 8.4, 13],
-      [11.5, 15, 6.0, 14], [-11, 20, 2.6, 15],
-    ];
-    for (const [x, z, h, seed] of stumps) {
-      const m = new THREE.Mesh(buildBrokenColumn({ height: h, radius: 0.8, seed }), marble);
-      m.position.set(x, 0, z);
-      this.gThreshold.add(m);
-    }
-    const drum1 = new THREE.Mesh(buildDrum({ radius: 0.7, length: 2.2, seed: 12 }), marble);
-    drum1.position.set(7.8, 0.66, 17.5);
-    drum1.rotation.y = 0.7;
-    this.gThreshold.add(drum1);
+    // the glowing depth seen through the doorway — fades as you reach it
+    this.doorGlow = this._slit(g, 6.2, 12.5, 0, 5.2, -9.9, 0, 0xd8b98c, 0.999);
+    this.doorGlow.material.transparent = true;
+    const glow = new THREE.PointLight(0xffdfb0, 34, 20, 1.6);
+    glow.position.set(0, 4.5, -6.5);
+    g.add(glow);
 
-    // cold grazing light from high above the gate — carves the flutes
-    const moon = new THREE.SpotLight(0x9fb4cf, 1500, 80, 0.34, 0.5, 1.3);
-    moon.position.set(9, 30, 14);
-    moon.target.position.set(0, 7.5, 0);
-    this.gThreshold.add(moon, moon.target);
-
-    // the descent glows through the doorway — a narrow warm rim, not a flood
-    const beyond = new THREE.SpotLight(0xffe3ba, 700, 70, 0.34, 0.5, 1.5);
-    beyond.position.set(0, 5, -12);
-    beyond.target.position.set(0, 2.5, 16);
-    this.gThreshold.add(beyond, beyond.target);
-
-    // the doorway itself — a slot of dim warm haze
-    const portal = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: this.glowTex, color: 0xffe0b0, transparent: true, opacity: 0.30,
-      blending: THREE.AdditiveBlending, depthWrite: false,
-    }));
-    portal.scale.set(8, 12, 1);
-    portal.position.set(0, 5.2, -7);
-    this.gThreshold.add(portal);
-    this.portalSprite = portal;
-
-    // faint moonshaft over the gate
-    const ray = makeRay({ topRadius: 0.9, bottomRadius: 5, height: 24, color: 0x9fb4cf, intensity: 0.10 });
-    ray.position.set(0, 13, -3);
-    this.gThreshold.add(ray);
-    this.rays.push(ray);
+    // cold, faint fill from high in front — the wall's face barely reads
+    const face = new THREE.SpotLight(0x76839a, 260, 110, 1.05, 0.9, 1.6);
+    face.position.set(-14, 44, 42);
+    face.target.position.set(0, 8, 0);
+    g.add(face, face.target);
   }
 
-  // ── II · procession ──────────────────────────────────────────
+  // ── II · the stair — a slot of darkness, one blade of light ──
 
-  _buildProcession() {
-    const { marble, floor } = this.materials;
-    const colGeo = buildColumn({ height: 11, radius: 0.55 });
-    this.columnGeo11 = colGeo;
+  _buildStair() {
+    const { wall, stone, floor } = this.materials;
+    const g = this.gStair = this._chamber([0.16, 0.48]);
 
-    // forty columns: two files per side
-    const positions = [];
-    for (let i = 0; i < 10; i++) {
-      const z = -18 - i * 4.9;
-      positions.push([-5, z], [5, z], [-9.5, z], [9.5, z]);
+    // 24 steps: y 0 → -12, z -10 → -46
+    const stair = new THREE.Mesh(buildStairs({ width: 6.4, steps: 24, rise: 0.5, run: 1.5 }), stone);
+    stair.position.set(0, 0, -10);
+    stair.receiveShadow = true;
+    g.add(stair);
+
+    // landing at the bottom, meeting the hall
+    this._floor(6.4, 6, 0, -12, -49, floor, g);
+
+    // flanking walls — the slot
+    this._box(2.2, 30, 42, -4.3, 1, -29, wall, g, { uv: [3, 2.4] });
+    this._box(2.2, 30, 42, 4.3, 1, -29, wall, g, { uv: [3, 2.4] });
+
+    // one blade of light crossing the stair from a high slit
+    const blade = new THREE.SpotLight(0xe9d9ba, 380, 40, 0.17, 0.45, 1.4);
+    blade.position.set(-3.4, 9, -27);
+    blade.target.position.set(3.2, -7.5, -31.5);
+    blade.castShadow = this.quality.shadows;
+    if (blade.castShadow) {
+      blade.shadow.mapSize.set(512, 512);
+      blade.shadow.bias = -0.002;
+      blade.shadow.normalBias = 0.04;
     }
-    const inst = new THREE.InstancedMesh(colGeo, marble, positions.length);
-    const m = new THREE.Matrix4();
-    positions.forEach(([x, z], i) => {
-      m.makeRotationY((i % 7) * 0.9);                       // vary flute phase
-      m.setPosition(x, -6, z);
-      inst.setMatrixAt(i, m);
-    });
-    inst.instanceMatrix.needsUpdate = true;
-    inst.castShadow = true;
-    this.gProcession.add(inst);
+    g.add(blade, blade.target);
 
-    // rhythmic shafts of pale light between the columns
-    const shaftZ = [-24, -38, -52];
-    for (let i = 0; i < shaftZ.length; i++) {
-      const z = shaftZ[i];
-      const spot = new THREE.SpotLight(0xcdd8e4, 620, 45, 0.42, 0.6, 1.4);
-      spot.position.set(i % 2 ? 3 : -3, 10, z);
-      spot.target.position.set(i % 2 ? -1 : 1, -6, z - 1);
-      this.gProcession.add(spot, spot.target);
+    this._slit(g, 3.2, 0.55, -3.15, 9, -27, Math.PI / 2, 0xcdb48c);
+    this._shaft(g, new V3(-3.2, 8.8, -27), new V3(3.2, -7.5, -31.5), 0.5, 2.6, 0xe6d5b4, 0.16);
 
-      const ray = makeRay({ topRadius: 0.5, bottomRadius: 3.4, height: 17, color: 0xb9c6d6, intensity: 0.20 });
-      ray.position.set(i % 2 ? 2 : -2, 2, z);
-      ray.rotation.z = (i % 2 ? -1 : 1) * 0.12;
-      this.gProcession.add(ray);
-      this.rays.push(ray);
-
-      const pool = makePool({ radius: 3.4, color: 0x9fb0c4, opacity: 0.10, map: this.glowTex });
-      pool.position.set(i % 2 ? 1.4 : -1.4, -5.96, z - 0.8);
-      this.gProcession.add(pool);
-    }
-
-    // a faint warm memory at the far end, pulling you forward
-    const lure = new THREE.PointLight(0xffd9a8, 45, 34, 1.5);
-    lure.position.set(0, -5, -71);
-    this.gProcession.add(lure);
+    // faint pull of light from the hall below
+    const pull = new THREE.PointLight(0xcfc2a8, 48, 32, 1.7);
+    pull.position.set(0, -10, -54);
+    g.add(pull);
   }
 
-  // ── III · the veiled ─────────────────────────────────────────
+  // ── III · the veiled — one figure, one window ────────────────
 
   _buildVeiled() {
-    const { marble, shroud } = this.materials;
-    const plinthGeo = buildPlinth({ w: 2.4, h: 1.6, d: 2.4 });
+    const { wall, floor, marble, figure } = this.materials;
+    const g = this.gVeiled = this._chamber([0.28, 0.74]);
 
-    const figures = [
-      { pos: [-6, -92],  pose: 'witness', h: 3.8, seed: 5,  rot: 0.35 },
-      { pos: [6, -103],  pose: 'orant',   h: 3.5, seed: 8,  rot: -0.45 },
-      { pos: [0, -117],  pose: 'mourner', h: 3.3, seed: 13, rot: 0.05 },
-    ];
+    // hall: floor y -12, z -46 → -94
+    this._floor(34, 50, 0, -12, -70, floor, g);
+    this._box(2.5, 24, 50, -17.2, -1, -70, wall, g, { uv: [4, 2] });
+    this._box(2.5, 24, 50, 17.2, -1, -70, wall, g, { uv: [4, 2] });
+    // end wall with a doorway through to the wing room
+    this._box(14.6, 24, 2.5, -9.7, -1, -95.2, wall, g, { uv: [1.6, 2] });
+    this._box(14.6, 24, 2.5, 9.7, -1, -95.2, wall, g, { uv: [1.6, 2] });
+    this._box(4.8, 12, 2.5, 0, 5, -95.2, wall, g, { uv: [0.6, 1.2] });
 
-    for (const f of figures) {
-      const [x, z] = f.pos;
-      const plinth = new THREE.Mesh(plinthGeo, marble);
-      plinth.position.set(x, -13, z);
-      plinth.castShadow = true;
-      plinth.receiveShadow = true;
-      this.gVeiled.add(plinth);
-
-      const fig = new THREE.Mesh(buildVeiledFigure({ height: f.h, seed: f.seed, pose: f.pose }), shroud);
-      fig.position.set(x, -11.4, z);
-      fig.rotation.y = f.rot + Math.PI;                    // face the path (bow toward +z)
-      fig.castShadow = true;
-      this.gVeiled.add(fig);
-
-      // votive spot per figure
-      const spot = new THREE.SpotLight(0xffe6c2, 500, 34, 0.42, 0.7, 1.5);
-      spot.position.set(x + 2.5, -2.5, z + 4.5);
-      spot.target.position.set(x, -11, z);
-      spot.castShadow = this.quality.shadows;
-      if (spot.castShadow) {
-        spot.shadow.mapSize.set(512, 512);
-        spot.shadow.bias = -0.002;
-      }
-      this.gVeiled.add(spot, spot.target);
-      this.veiled.push({ spot, base: 500, pos: new THREE.Vector3(x, -9.5, z), boost: 0 });
-
-      const ray = makeRay({ topRadius: 0.4, bottomRadius: 2.6, height: 12, color: 0xffe0b8, intensity: 0.14 });
-      ray.position.set(x + 1.1, -7, z + 2);
-      ray.rotation.z = -0.18;
-      this.gVeiled.add(ray);
-      this.rays.push(ray);
-
-      const pool = makePool({ radius: 4.2, color: 0xffd9a8, opacity: 0.11, map: this.glowTex });
-      pool.position.set(x, -12.96, z + 0.5);
-      this.gVeiled.add(pool);
-
-      const rim = new THREE.PointLight(0x9db4d4, 42, 16, 1.7);
-      rim.position.set(x - 1.5, -7.5, z - 3.5);
-      this.gVeiled.add(rim);
-    }
-
-    // a broad dim wash so the hall floor exists at all
-    const wash = new THREE.SpotLight(0x8b94a3, 720, 60, 0.95, 0.9, 1.6);
-    wash.position.set(0, 2, -101);
-    wash.target.position.set(0, -13, -102);
-    this.gVeiled.add(wash, wash.target);
-
-    // a pale shaft over the stair down into the hall
-    const stairGlow = new THREE.SpotLight(0xaebccd, 320, 40, 0.5, 0.65, 1.4);
-    stairGlow.position.set(4, -1, -71);
-    stairGlow.target.position.set(-1, -11, -78);
-    this.gVeiled.add(stairGlow, stairGlow.target);
-
-    const stairRay = makeRay({ topRadius: 0.5, bottomRadius: 3.0, height: 12, color: 0xaebccd, intensity: 0.09 });
-    stairRay.position.set(2, -3.5, -73);
-    stairRay.rotation.z = -0.22;
-    this.gVeiled.add(stairRay);
-    this.rays.push(stairRay);
-
-    // cold counter-light from the hall's far end
-    const counter = new THREE.SpotLight(0x8fa3bd, 80, 70, 0.55, 0.8, 1.4);
-    counter.position.set(0, -2, -127);
-    counter.target.position.set(0, -8, -98);
-    this.gVeiled.add(counter, counter.target);
-  }
-
-  // ── IV · the fallen ──────────────────────────────────────────
-
-  _buildFallen() {
-    const { marble, stone } = this.materials;
-
-    // standing stumps
-    const stumps = [
-      { x: -8, z: -146, h: 6.5, seed: 21, r: 0.62 },
-      { x: 7.5, z: -152, h: 3.4, seed: 22, r: 0.62 },
-      { x: -6.5, z: -166, h: 9.0, seed: 23, r: 0.62 },
-      { x: 9, z: -170, h: 5.2, seed: 24, r: 0.62 },
-    ];
-    for (const s of stumps) {
-      const mesh = new THREE.Mesh(buildBrokenColumn({ height: s.h, radius: s.r, seed: s.seed }), marble);
-      mesh.position.set(s.x, -20, s.z);
-      mesh.castShadow = true;
-      this.gFallen.add(mesh);
-    }
-
-    // fallen drums — a column dismembered along its line of collapse
-    const drumGeo = buildDrum({ radius: 0.62, length: 1.9, seed: 31 });
-    const drops = [
-      [-1.5, -148, 0.15], [0.8, -150.5, 0.55], [3.0, -153.5, 0.95],
-      [4.8, -157, 1.35], [2.2, -161, 2.1], [-2.5, -158.5, -0.4],
-    ];
-    drops.forEach(([x, z, ry], i) => {
-      const d = new THREE.Mesh(drumGeo, marble);
-      d.position.set(x, -19.35, z);
-      d.rotation.y = ry;
-      d.rotation.x = (i % 3) * 0.05;
-      d.castShadow = true;
-      this.gFallen.add(d);
-    });
-
-    // collapsed pediment leaning against the dark
-    const ped = new THREE.Mesh(scaleUV(buildPediment({ width: 11, height: 2.6, depth: 1.2 }), 0.4, 0.4), stone);
-    ped.position.set(-11, -19.9, -172);
-    ped.rotation.set(-0.28, 0.5, 0.12);
-    this.gFallen.add(ped);
-
-    // architrave beam, one end on the ground, aligned with the line of collapse
-    const beam = new THREE.Mesh(buildArchitrave({ length: 9, h: 1.1, d: 1.1 }), stone);
-    beam.position.set(8.6, -19.55, -168.5);
-    beam.rotation.set(0.04, 1.22, -0.1);
-    beam.castShadow = true;
-    this.gFallen.add(beam);
-
-    // rubble
-    const rubbleMat = stone.clone();
-    rubbleMat.color.setHex(0x5e594f);
-    const rubble = new THREE.Mesh(buildRubble({ count: this.quality.rubble, area: 14, seed: 3 }), rubbleMat);
-    rubble.position.set(0.5, -20, -159);
-    rubble.receiveShadow = true;
-    this.gFallen.add(rubble);
-
-    // a dying glow over the stair into the ruin
-    const stairGlow2 = new THREE.SpotLight(0xc7b391, 420, 40, 0.5, 0.7, 1.4);
-    stairGlow2.position.set(-4, -8, -130);
-    stairGlow2.target.position.set(1, -18, -137);
-    this.gFallen.add(stairGlow2, stairGlow2.target);
-
-    // the oculus — one wound of light in the ceiling
-    const oculus = new THREE.SpotLight(0xbfcbdb, 1050, 80, 0.17, 0.45, 1.3);
-    oculus.position.set(0, 8, -160);
-    oculus.target.position.set(0.5, -20, -161);
-    oculus.castShadow = this.quality.shadows;
-    if (oculus.castShadow) {
-      oculus.shadow.mapSize.set(1024, 1024);
-      oculus.shadow.bias = -0.0015;
-    }
-    this.gFallen.add(oculus, oculus.target);
-
-    const shaft = makeRay({ topRadius: 0.8, bottomRadius: 4.4, height: 28, color: 0xacbccf, intensity: 0.44 });
-    shaft.position.set(0.3, -7, -160.5);
-    this.gFallen.add(shaft);
-    this.rays.push(shaft);
-
-    const pool = makePool({ radius: 4.6, color: 0x9fb0c4, opacity: 0.12, map: this.glowTex });
-    pool.position.set(0.5, -19.94, -161);
-    this.gFallen.add(pool);
-  }
-
-  // ── V · the winged one ───────────────────────────────────────
-
-  _buildWinged() {
-    const { marble, shroud } = this.materials;
-
-    // ring of columns
-    const ringGeo = buildColumn({ height: 17, radius: 0.85 });
-    const ringCount = 14;
-    const slots = [];
-    for (let i = 0; i < ringCount; i++) {
-      const a = (i / ringCount) * Math.PI * 2 + Math.PI / ringCount;
-      const x = Math.cos(a) * 21, z = -214 + Math.sin(a) * 21;
-      if (Math.abs(x) < 5 && z > -214) continue;           // leave the entrance open
-      slots.push([a, x, z]);
-    }
-    const ring = new THREE.InstancedMesh(ringGeo, marble, slots.length);
-    const m = new THREE.Matrix4();
-    slots.forEach(([a, x, z], i) => {
-      m.makeRotationY(a);
-      m.setPosition(x, -24, z);
-      ring.setMatrixAt(i, m);
-    });
-    ring.instanceMatrix.needsUpdate = true;
-    this.gRotunda.add(ring);
-
-    // the colossus
-    const plinth = new THREE.Mesh(buildPlinth({ w: 5.2, h: 4.2, d: 5.2 }), marble);
-    plinth.position.set(0, -24, -214);
+    // the figure
+    const plinth = new THREE.Mesh(buildPlinth({ w: 2.7, h: 1.7, d: 2.7 }), marble);
+    plinth.position.set(5, -12, -72);
     plinth.castShadow = true;
     plinth.receiveShadow = true;
-    this.gRotunda.add(plinth);
+    g.add(plinth);
 
     const fig = new THREE.Mesh(
-      buildVeiledFigure({ height: 7.6, seed: 40, pose: 'ascendant' }),
-      shroud
+      buildVeiledFigure({ height: 4.6, seed: 5, pose: 'witness', detail: this.quality.detail }),
+      figure
     );
-    fig.position.set(0, -19.8, -214);
-    fig.rotation.y = Math.PI;                              // face the entrance
+    fig.position.set(5, -10.32, -72);
+    fig.rotation.y = Math.PI + 0.32;                   // bows toward the entrance
     fig.castShadow = true;
-    this.gRotunda.add(fig);
-    this.colossus = fig;
+    fig.receiveShadow = true;
+    g.add(fig);
 
-    // wings — one carved surface per side, two layers each
-    const wingMat = shroud.clone();
-    wingMat.side = THREE.DoubleSide;
-    this.wingPair = new WingPair(wingMat, 10.5);
-    this.wingPair.group.position.set(0, -15.2, -214.9);    // shoulder blades
-    this.gRotunda.add(this.wingPair.group);
-
-    // light rig: cold rim from behind, warm devotion from the front
-    const back = new THREE.SpotLight(0xa8bcd8, 1600, 46, 0.5, 0.55, 1.3);
-    back.position.set(0, -6, -238);
-    back.target.position.set(0, -16, -212);
-    this.gRotunda.add(back, back.target);
-    this.wingedBack = back;
-
-    const key = new THREE.SpotLight(0xffdfae, 720, 80, 0.30, 0.7, 1.4);
-    key.position.set(11, -4, -196);
-    key.target.position.set(0, -13, -214);
+    // key: one high window on the left wall, raking across the figure
+    const key = new THREE.SpotLight(0xf2e4c8, 760, 60, 0.165, 0.5, 1.35);
+    key.position.set(-14.5, 8, -65);
+    key.target.position.set(5, -8.5, -72);
     key.castShadow = this.quality.shadows;
     if (key.castShadow) {
-      key.shadow.mapSize.set(1024, 1024);
+      key.shadow.mapSize.set(2048, 2048);
       key.shadow.bias = -0.0015;
+      key.shadow.normalBias = 0.05;
     }
-    this.gRotunda.add(key, key.target);
-    this.wingedKey = key;
+    g.add(key, key.target);
+    this.veiled.push({ spot: key, base: 760, pos: new V3(5, -7.5, -72), boost: 0 });
 
-    // the oculus far above — the way out
-    const oculusGlow = new THREE.PointLight(0xf3ead6, 300, 100, 1.2);
-    oculusGlow.position.set(0, 22, -214);
-    this.gRotunda.add(oculusGlow);
-    this.oculusGlow = oculusGlow;
+    // the window itself, and the body of its light
+    this._slit(g, 1.3, 6.5, -15.9, 7, -65.5, Math.PI / 2, 0xd4bd96);
+    this._shaft(g, new V3(-14.5, 7.5, -65), new V3(4, -11, -71.5), 0.9, 4.6, 0xe8dcc2, 0.22);
 
-    const shaft = makeRay({ topRadius: 1.6, bottomRadius: 7.5, height: 46, color: 0xd8cdb4, intensity: 0.20 });
-    shaft.position.set(0, 0, -214);
-    this.gRotunda.add(shaft);
-    this.rays.push(shaft);
-    this.finalShaft = shaft;
+    // sparse dust, alive only inside the shaft
+    this.dustVeiled = { center: [-5, -2, -68.5], box: [8, 14, 5] };
 
-    // bright disc of the oculus itself
-    const disc = new THREE.Mesh(
-      new THREE.CircleGeometry(2.6, 48),
-      new THREE.MeshBasicMaterial({ color: 0xfff6e2, transparent: true, opacity: 0.9, side: THREE.DoubleSide })
+    // cool rim from behind-right, separating her from the dark
+    const rim = new THREE.SpotLight(0x7e8ea6, 300, 40, 0.22, 0.7, 1.5);
+    rim.position.set(13, -3, -84);
+    rim.target.position.set(5, -7.5, -72);
+    g.add(rim, rim.target);
+
+    // bounce off the floor pool — soft, warm, from below
+    const bounce = new THREE.PointLight(0xd9c8a8, 9, 9, 1.8);
+    bounce.position.set(3.5, -10.5, -70);
+    g.add(bounce);
+
+    // the far wall barely exists — enough to keep the dark material
+    const wash = new THREE.SpotLight(0x3d4450, 220, 50, 0.9, 0.9, 1.7);
+    wash.position.set(-8, 4, -70);
+    wash.target.position.set(4, -8, -94);
+    g.add(wash, wash.target);
+  }
+
+  // ── IV · the wing — a fragment under raking light ────────────
+
+  _buildWing() {
+    const { wall, floor, marble } = this.materials;
+    const g = this.gWing = this._chamber([0.665, 0.90]);
+
+    // passage from the hall, then a smaller room: z -94 → -124
+    this._floor(20, 32, 0, -12, -110, floor, g);
+    this._box(2.4, 20, 32, -10.2, -3, -110, wall, g, { uv: [3, 2] });
+    this._box(2.4, 20, 32, 10.2, -3, -110, wall, g, { uv: [3, 2] });
+    // end wall with the doorway down to the rotunda
+    this._box(6.9, 20, 2.4, -6.75, -3, -125.2, wall, g, { uv: [0.9, 2] });
+    this._box(6.9, 20, 2.4, 6.75, -3, -125.2, wall, g, { uv: [0.9, 2] });
+    this._box(6.6, 9, 2.4, 0, 2.5, -125.2, wall, g, { uv: [0.8, 1] });
+
+    // low slab plinth
+    const slab = new THREE.Mesh(buildPlinth({ w: 6.0, h: 1.0, d: 2.6 }), marble);
+    slab.position.set(-0.5, -12, -112);
+    slab.castShadow = true;
+    slab.receiveShadow = true;
+    g.add(slab);
+
+    // the wing — upright, root resting on the slab, tip rising
+    const wingMat = marble.clone();
+    wingMat.side = THREE.DoubleSide;
+    wingMat.bumpScale = 0.4;
+    const wing = buildWingFragment(wingMat, { scale: 6.0, spread: 0.82, side: 1 });
+    wing.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    wing.position.set(-2.4, -11.0, -112);
+    wing.rotation.z = 0.62;                            // tip lifted
+    wing.rotation.y = -0.35;                           // turned slightly toward the camera
+    g.add(wing);
+
+    // raking light from a low slit in the right wall — grazes the feathers
+    const rake = new THREE.SpotLight(0xf3e3c4, 290, 40, 0.40, 0.6, 1.4);
+    rake.position.set(8.6, -9.2, -106);
+    rake.target.position.set(-2, -8.8, -112.5);
+    rake.castShadow = this.quality.shadows;
+    if (rake.castShadow) {
+      rake.shadow.mapSize.set(1024, 1024);
+      rake.shadow.bias = -0.002;
+      rake.shadow.normalBias = 0.04;
+    }
+    g.add(rake, rake.target);
+    this._slit(g, 4.4, 0.7, 8.95, -9.2, -106, -Math.PI / 2, 0xcdb48c);
+
+    // dim cool fill so the room reads at all
+    const fill = new THREE.SpotLight(0x6f7c92, 170, 50, 0.9, 0.9, 1.6);
+    fill.position.set(-6, 4, -100);
+    fill.target.position.set(0, -10, -112);
+    g.add(fill, fill.target);
+  }
+
+  // ── V · the winged one — the rotunda ─────────────────────────
+
+  _buildRotunda() {
+    const { wall, floor, marble, figure } = this.materials;
+    const g = this.gRotunda = this._chamber([0.845, 1.1]);
+
+    // descent passage: stair z -124 → -136, y -12 → -18
+    const stair = new THREE.Mesh(buildStairs({ width: 6.4, steps: 12, rise: 0.5, run: 1.0 }), this.materials.stone);
+    stair.position.set(0, -12, -124);
+    stair.receiveShadow = true;
+    g.add(stair);
+    this._box(2.2, 18, 16, -4.3, -10, -130, wall, g, { uv: [1.6, 1.6] });
+    this._box(2.2, 18, 16, 4.3, -10, -130, wall, g, { uv: [1.6, 1.6] });
+
+    // rotunda floor + drum
+    const rotFloor = new THREE.Mesh(new THREE.CircleGeometry(22, 72), floor);
+    rotFloor.rotation.x = -Math.PI / 2;
+    rotFloor.position.set(0, -18, -158);
+    rotFloor.receiveShadow = true;
+    g.add(rotFloor);
+
+    const drum = new THREE.Mesh(
+      new THREE.CylinderGeometry(22, 22, 46, 72, 1, true),
+      this.materials.wall.clone()
     );
-    disc.position.set(0, 24, -214);
+    drum.material.side = THREE.BackSide;
+    drum.position.set(0, 5, -158);
+    drum.receiveShadow = true;
+    g.add(drum);
+
+    // the colossus
+    const plinth = new THREE.Mesh(buildPlinth({ w: 5.4, h: 2.8, d: 5.4 }), marble);
+    plinth.position.set(0, -18, -158);
+    plinth.castShadow = true;
+    plinth.receiveShadow = true;
+    g.add(plinth);
+
+    const fig = new THREE.Mesh(
+      buildVeiledFigure({ height: 8.4, seed: 40, pose: 'nike', detail: this.quality.detail }),
+      figure
+    );
+    fig.position.set(0, -15.22, -158);
+    fig.rotation.y = Math.PI;                          // faces the entrance
+    fig.castShadow = true;
+    fig.receiveShadow = true;
+    g.add(fig);
+
+    // wings — one carved surface per side
+    const wingMat = figure.clone();
+    wingMat.vertexColors = false;
+    wingMat.side = THREE.DoubleSide;
+    this.wingPair = new WingPair(wingMat, 10.5);
+    this.wingPair.group.position.set(0, -8.8, -158.9);
+    this.wingPair.group.traverse((o) => { if (o.isMesh) o.receiveShadow = true; });
+    g.add(this.wingPair.group);
+
+    // the oculus — one round wound of sky
+    // the sun enters the oculus at an angle, the way real light does
+    const oculus = new THREE.SpotLight(0xe3ddd0, 900, 70, 0.34, 0.6, 1.3);
+    oculus.position.set(0, 24, -158);
+    oculus.target.position.set(-8, -14, -160);
+    oculus.castShadow = this.quality.shadows;
+    if (oculus.castShadow) {
+      oculus.shadow.mapSize.set(2048, 2048);
+      oculus.shadow.bias = -0.0015;
+      oculus.shadow.normalBias = 0.05;
+    }
+    g.add(oculus, oculus.target);
+    this.oculusLight = oculus;
+
+    const disc = new THREE.Mesh(
+      new THREE.CircleGeometry(3.0, 48),
+      new THREE.MeshBasicMaterial({ color: 0xd8d2c2, side: THREE.DoubleSide, fog: false })
+    );
+    disc.position.set(0, 23, -158);
     disc.rotation.x = Math.PI / 2;
-    this.gRotunda.add(disc);
+    g.add(disc);
     this.oculusDisc = disc;
 
     const halo = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: this.glowTex, color: 0xfff2d8, transparent: true, opacity: 0.55,
+      map: this.glowTex, color: 0xf2e6cc, transparent: true, opacity: 0.20,
       blending: THREE.AdditiveBlending, depthWrite: false,
     }));
-    halo.scale.set(14, 14, 1);
-    halo.position.set(0, 23, -214);
-    this.gRotunda.add(halo);
+    halo.scale.set(8, 8, 1);
+    halo.position.set(0, 22, -158);
+    g.add(halo);
     this.halo = halo;
 
-    const pool = makePool({ radius: 7, color: 0xe8d9b8, opacity: 0.06, map: this.glowTex });
-    pool.position.set(0, -23.94, -214);
-    this.gRotunda.add(pool);
+    this.finalShaft = this._shaft(
+      g, new V3(0, 23, -158), new V3(-7.5, -18, -160), 2.4, 5.5, 0xded2b8, 0.11
+    );
+
+    // cool rim from behind, tracing wings and shoulders
+    const back = new THREE.SpotLight(0x8296b2, 420, 46, 0.55, 0.6, 1.4);
+    back.position.set(0, -2, -180);
+    back.target.position.set(0, -9, -157);
+    g.add(back, back.target);
+    this.rotundaBack = back;
+
+    // faint neutral front fill so the drapery is never a silhouette
+    const front = new THREE.SpotLight(0xcabfa8, 200, 60, 0.5, 0.8, 1.6);
+    front.position.set(-8, -8, -136);
+    front.target.position.set(0, -10, -158);
+    g.add(front, front.target);
+    this.rotundaFront = front;
+
+    this.dustRotunda = { center: [0, 0, -158], box: [9, 38, 9] };
   }
 
   // ── atmosphere ───────────────────────────────────────────────
 
   _buildAtmosphere() {
     const q = this.quality.dustScale;
-    const add = (opts, group) => {
-      const d = makeDust({ ...opts, count: Math.round(opts.count * q), map: this.glowTex });
+    const add = (spec, count, opacity, group) => {
+      if (!spec) return;
+      const d = makeDust({
+        count: Math.round(count * q),
+        box: spec.box, center: spec.center, opacity, map: this.glowTex,
+      });
       group.add(d);
       this.dusts.push(d);
     };
-    add({ count: 220, box: [30, 16, 34], center: [0, 6, 8], opacity: 0.4 }, this.gThreshold);
-    add({ count: 260, box: [18, 12, 50], center: [0, 0, -39], opacity: 0.45 }, this.gProcession);
-    add({ count: 260, box: [30, 10, 44], center: [0, -8, -102], opacity: 0.4 }, this.gVeiled);
-    add({ count: 300, box: [36, 14, 42], center: [0, -14, -159], opacity: 0.5 }, this.gFallen);
-    add({ count: 420, box: [40, 34, 44], center: [0, -8, -214], opacity: 0.5 }, this.gRotunda);
+    add(this.dustVeiled, 90, 0.15, this.gVeiled);
+    add(this.dustRotunda, 130, 0.15, this.gRotunda);
 
-    // ambient — barely there, so the dark stays honest
-    this.scene.add(new THREE.HemisphereLight(0x2a3040, 0x0d0a07, 0.65));
-
-    // the carried lantern (driven from main)
-    this.lantern = new THREE.PointLight(0xffe4c0, 26, 24, 1.7);
-    this.scene.add(this.lantern);
-  }
-
-  // ── wings ────────────────────────────────────────────────────
-
-  setWingSpread(v) {
-    this.wingSpread = THREE.MathUtils.clamp(v, 0, 1);
-    if (this.wingPair && this.gRotunda.visible) this.wingPair.setSpread(this.wingSpread);
+    // ambient — barely there, cool above, warm-black below
+    this.scene.add(new THREE.HemisphereLight(0x2c3340, 0x0d0a08, 0.5));
   }
 
   // ── per-frame ────────────────────────────────────────────────
 
-  update(progress, time, dt, cameraPos) {
+  update(progress, time, dt) {
     this.time = time;
 
     // chamber culling
@@ -547,15 +457,16 @@ export class World {
       g.visible = progress >= a && progress <= b;
     }
 
-    // the doorway haze dims once you are through it
-    if (this.portalSprite) {
-      this.portalSprite.material.opacity = 0.30 * (1 - THREE.MathUtils.smoothstep(progress, 0.03, 0.085));
+    // the door's glow gives way to the stair as you reach it
+    if (this.doorGlow) {
+      this.doorGlow.material.opacity = 1 - THREE.MathUtils.smoothstep(progress, 0.16, 0.215);
+      this.doorGlow.visible = this.doorGlow.material.opacity > 0.005;
     }
 
-    // fog breathes with depth: thick in the middle passages, thin in the rotunda
+    // fog: thin outside, dense in the stair and passages, clear in the rotunda
     const fogKeys = [
-      [0.00, 0.024], [0.15, 0.034], [0.40, 0.030], [0.62, 0.034],
-      [0.78, 0.018], [0.93, 0.012], [1.00, 0.008],
+      [0.00, 0.012], [0.22, 0.026], [0.40, 0.018], [0.62, 0.016],
+      [0.72, 0.022], [0.86, 0.010], [1.00, 0.008],
     ];
     this.scene.fog.density = sampleKeys(fogKeys, progress);
 
@@ -563,26 +474,25 @@ export class World {
     for (const d of this.dusts) if (d.parent.visible) d.material.uniforms.uTime.value = time;
     for (const r of this.rays) if (r.parent.visible) r.material.uniforms.uTime.value = time;
 
-    // votive swells
+    // attention light on the veiled figure — an almost imperceptible swell
     for (const vfig of this.veiled) {
-      vfig.spot.intensity += ((vfig.base * (1 + vfig.boost * 1.6)) - vfig.spot.intensity) * Math.min(1, dt * 3);
+      vfig.spot.intensity += ((vfig.base * (1 + vfig.boost * 0.22)) - vfig.spot.intensity) * Math.min(1, dt * 3);
     }
 
-    // wing reveal — driven by approach through the rotunda
-    const spread = THREE.MathUtils.smoothstep(progress, 0.775, 0.875);
-    this.setWingSpread(spread);
+    // wings: one slow gesture across the approach
+    if (this.wingPair && this.gRotunda.visible) {
+      const spread = 0.55 + 0.45 * THREE.MathUtils.smoothstep(progress, 0.865, 0.955);
+      this.wingPair.setSpread(spread);
+    }
 
-    // finale: the oculus opens and the world above burns white
-    if (this.oculusGlow) {
-      const asc = THREE.MathUtils.smoothstep(progress, 0.93, 1.0);
-      this.oculusGlow.intensity = 300 + asc * 2600;
-      this.finalShaft.material.uniforms.uIntensity.value = 0.20 + asc * 0.55;
-      if (this.wingedBack) this.wingedBack.intensity = 1600 * (1 - asc * 0.6);
-      if (this.halo) {
-        this.halo.scale.set(14 + asc * 46, 14 + asc * 46, 1);
-        this.halo.material.opacity = 0.55 + asc * 0.4;
-      }
-      if (this.oculusDisc) this.oculusDisc.scale.setScalar(1 + asc * 2.2);
+    // ending: the room recedes; only the oculus stays
+    if (this.oculusLight) {
+      const end = THREE.MathUtils.smoothstep(progress, 0.955, 1.0);
+      this.oculusLight.intensity = 900 * (1 - end * 0.35);
+      this.rotundaFront.intensity = 200 * (1 - end * 0.8);
+      this.rotundaBack.intensity = 420 * (1 - end * 0.6);
+      this.finalShaft.material.uniforms.uIntensity.value = 0.11 + end * 0.09;
+      this.halo.material.opacity = 0.20 + end * 0.20;
     }
   }
 }
