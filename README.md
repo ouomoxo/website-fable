@@ -1,70 +1,66 @@
-# KATABASIS — The House of Forgotten Gods
+# ANAMNESIS
 
-A digital monument in five rooms: a descent past a goddess's head, one
-recovered wing, and a winged colossus beneath an oculus. Scroll is the
-dolly; the building refuses to be rushed. Room III turns on a single
-perceptual shift: the chamber is first read as darkness and a rim of
-light, until the window wakes and the mass becomes a face.
+**A monument that exists only from one point of view.**
 
-![KATABASIS](assets/poster.jpg)
+A fragmented Greek monument that becomes complete only from the viewer's
+exact perspective. Separated stone fragments — a face, a torso, two wings,
+a fall of drapery — stand on their own armatures at different depths in a
+dark hall. From one privileged position they agree into a single winged
+figure, and traces of lost polychromy briefly return. Move, and it becomes
+history again.
 
-## The descent
+![ANAMNESIS](assets/poster.jpg)
 
-| | Room | |
+## The five movements
+
+| | Movement | |
 |---|---|---|
-| I | **Threshold** | a silent colonnade; daylight from an unseen opening; two piers and a dark slot |
-| II | **The Stair** | a slot of darkness, one blade of light |
-| III | **The Face** | the same face again, found by a waking window |
-| IV | **The Wing** | a marble wing recovered without its figure |
-| V | **The Winged One** | a winged colossus where the light comes down |
-| VI | **Anabasis** | the way up |
+| I | **The False Memory** | a silent colonnade; the accepted white image of antiquity |
+| II | **The Separation** | a goddess's head found by a waking window; a wing without its figure |
+| III | **The Measure** | the hall of fragments, entered off-axis; perspective is the system |
+| IV | **The Agreement** | at one exact point the fragments form the body; pigment surfaces |
+| V | **The Afterimage** | a few steps are enough; the image separates; memory reconstructs |
+
+The complete figure is never present as one model. `js/assets.js` slices
+the scanned figure into fragments; `js/world.js` scales each fragment about
+the privileged camera position (`CSTAR`) so its projection is preserved
+while it stands somewhere else entirely. The reveal and its loss are pure
+perspective — no crossfades, no swapped statue.
 
 ## Run it
 
 Everything is static — no build step, no bundler, no external requests.
 
 ```bash
-# any static file server works (ES modules need http://, not file://)
-python3 -m http.server 8000
-# then open http://localhost:8000
+python3 -m http.server 8000     # any static server; ES modules need http://
 ```
+
+`?probe` exposes `window.__KB` (deterministic frame control) for testing.
 
 ## How it is made
 
-- **Three.js** (vendored in `js/lib/`), one `<canvas>`, one post pass
-  (ACES tone, gentle split grade, near-invisible grain, quiet vignette).
-- **The sculptures are real scans.** The winged colossus is *Lucy*
-  (Stanford 3D Scanning Repository); the head is the *Igea* scan
-  (Cyberware sample). Both are served as meshopt-compressed GLBs
-  (0.5–2.6 MB), normalized and vertex-tinted at load; a lighter tier
-  ships to touch devices. The architectural stone and the wing fragment
-  remain procedural — marble and limestone computed on a canvas, the
-  wing a parametric carved surface.
-- **The camera is a shot list, not a tour.** Each room gets one slow,
-  composed movement, then stillness; between shots the frame holds.
-  Pointer parallax lets you look without leaving the path.
-- **Light is the composition.** One motivated key per room — a doorway, a
-  window, a slit, an oculus — with sparse dust that exists only where it
-  crosses the light.
-- **Sound is optional and synthesized** — a drone the depth of the building,
-  breathing air, distant stone settling. Silence is the default.
-- **Typography:** Cormorant Garamond & Inter, self-hosted (OFL).
+- **Three.js r160** (vendored), one canvas, one post pass (ACES, gentle
+  split grade, near-invisible grain).
+- **Real scans, never whole.** *Lucy* (Stanford) donates the body fragments;
+  *Igea* (Cyberware) is the face. Meshopt-compressed GLBs, 1.3–3.7 MB total
+  by device tier, sliced and pigment-masked at load.
+- **Lost color.** Pigment (Egyptian blue, red ochre, carbon black, mineral
+  green, worn gilding) is baked per-vertex into recesses and borders and
+  revealed by an alignment-driven uniform — evidence, not paint.
+- **Authored camera.** A scroll-driven shot list with holds; an alignment
+  basin damps pointer deviation to zero as the eye reaches the privileged
+  point, so every visitor succeeds without precision effort.
+- **Sound** is optional and synthesized; the drone resolves as the
+  fragments agree. Silence is complete.
 
 ## Access & performance
 
-- `prefers-reduced-motion` honored; a manual **STILL** toggle does the same.
-- All copy is real DOM text — screen-reader reachable, selectable, indexable.
-- Keyboard: arrows / PageUp / PageDown / Home / End; navigation is focusable.
-- Quality scales by device (pixel-ratio caps, geometry detail, dust counts)
-  and degrades adaptively if the frame rate drops.
-- Portrait screens are reframed — subjects sit high, copy owns the floor.
-- No WebGL? A quiet fallback page keeps the door marked.
-- `?probe` exposes `window.__KB` for deterministic visual testing.
+- Reduced-motion honored; STILL and SOUND toggles; keyboard navigation;
+  semantic DOM copy; designed no-WebGL fallback.
+- Touch devices receive lighter meshes and textures; render scale adapts
+  if the frame rate drops; chambers are visibility-culled by scroll range.
+- Docs: `docs/creative-brief.md`, `docs/shot-bible.md`,
+  `docs/asset-ledger.md`, `docs/performance-budget.md`, `docs/qa-report.md`.
+- Licenses: `ATTRIBUTION.md`.
 
-## Attribution
-
-- *Lucy* — courtesy of the [Stanford 3D Scanning Repository](https://graphics.stanford.edu/data/3Dscanrep/).
-- *Igea* — Cyberware sample scan, long redistributed for graphics research.
-- Decimated meshes via [common-3d-test-models](https://github.com/alecjacobson/common-3d-test-models).
-
-MMXXVI. No stone was quarried.
+Memory does not preserve. It reconstructs. MMXXVI.

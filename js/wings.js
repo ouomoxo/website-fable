@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// KATABASIS — wings
+// ANAMNESIS — wings
 // Not feathers glued to a frame: a single carved surface, the way
 // a sculptor would cut a wing from stone — scalloped rows reading
 // as plumage, unfurling as one gesture.

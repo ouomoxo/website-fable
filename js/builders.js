@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// KATABASIS — builders
+// ANAMNESIS — builders
 // The architectural stone: columns, stairs and plinths.
 // (The carved wing lives in wings.js; the sculptures are scans,
 // prepared in assets.js.)

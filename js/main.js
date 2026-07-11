@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// KATABASIS — main
+// ANAMNESIS — main
 // Boot, descent, and return.
 // ═══════════════════════════════════════════════════════════════
 
@@ -213,7 +213,9 @@ function updateDOM(p) {
     }
     if (p >= c.a) activeIdx = i;
   }
-  navLinks.forEach((a, i) => a.classList.toggle('active', i === activeIdx));
+  // sections outnumber movements: map each chapter to its movement
+  const MOVEMENT_OF = [0, 0, 1, 1, 2, 3, 4];
+  navLinks.forEach((a, i) => a.classList.toggle('active', i === (MOVEMENT_OF[activeIdx] ?? 0)));
   document.body.classList.toggle('past-hero', p > 0.06);
 }
 
@@ -273,12 +275,17 @@ function loop() {
   state.pointer.sy = lerp(state.pointer.sy, state.pointer.y, pk);
 
   const p = state.progress;
-  const swayAmp = state.still ? 0 : (isTouch ? 0.7 : 0.4);
-  const px = state.still ? 0 : state.pointer.sx;
-  const py = state.still ? 0 : state.pointer.sy;
+  world.update(p, state.time, dt);
+
+  // near the agreement, free deviation quietly fades: the eye is
+  // guided into the privileged point without being seized
+  const align = world.alignment ?? 0;
+  const calm = 1 - 0.92 * align;
+  const swayAmp = (state.still ? 0 : (isTouch ? 0.7 : 0.4)) * calm;
+  const px = (state.still ? 0 : state.pointer.sx) * calm;
+  const py = (state.still ? 0 : state.pointer.sy) * calm;
 
   rig.update(p, px, py, state.time, swayAmp);
-  world.update(p, state.time, dt);
   updateAttention(dt);
   updateDOM(p);
 
@@ -286,7 +293,7 @@ function loop() {
   fadeBlack.value = lerp(fadeBlack.value, fadeBlack.target, 1 - Math.exp(-dt * 1.4));
   post.material.uniforms.uBlack.value = fadeBlack.value;
 
-  sound.update(clamp(p / 0.9, 0, 1), dt, smoothstep(0.955, 1, p));
+  sound.update(clamp(p / 0.9, 0, 1), dt, align);
 
   post.render(world.scene, rig.camera, state.time);
 

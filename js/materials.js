@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// KATABASIS — materials
+// ANAMNESIS — materials
 // Aged ivory marble, limestone walls, dark honed floors.
 // Every surface is computed; nothing is pure white, nothing is
 // pure black.
@@ -249,6 +249,27 @@ export function createMaterials(renderer, quality) {
     vertexColors: true,
   });
 
+  // fragment stone: the same material carrying traces of pigment in
+  // the aPig vertex attribute; uPigment reveals them near alignment
+  const makeFragmentStone = () => {
+    const m = scan.clone();
+    m.customUniforms = { uPigment: { value: 0 } };
+    m.onBeforeCompile = (shader) => {
+      shader.uniforms.uPigment = m.customUniforms.uPigment;
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nattribute vec4 aPig;\nvarying vec4 vPig;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvPig = aPig;');
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nuniform float uPigment;\nvarying vec4 vPig;')
+        .replace(
+          '#include <color_fragment>',
+          '#include <color_fragment>\n' +
+          'diffuseColor.rgb = mix(diffuseColor.rgb, vPig.rgb, vPig.a * uPigment);'
+        );
+    };
+    return m;
+  };
+
   const wall = new THREE.MeshStandardMaterial({
     map: wallTex,
     bumpMap: bumpCoarse,
@@ -280,7 +301,7 @@ export function createMaterials(renderer, quality) {
     envMapIntensity: 0.12,
   });
 
-  return { marble, figure, scan, wall, floor, stone, env };
+  return { marble, figure, scan, makeFragmentStone, wall, floor, stone, env };
 }
 
 // dim architectural environment — one pale overhead opening,

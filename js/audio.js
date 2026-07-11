@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// KATABASIS — sound
+// ANAMNESIS — sound
 // No recordings. A drone the depth of the building, air that
 // moves like slow cloth, and the occasional far-off settling of
 // stone. Synthesized on entry; silent by default.

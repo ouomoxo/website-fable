@@ -1,8 +1,8 @@
 // ═══════════════════════════════════════════════════════════════
-// KATABASIS — world
-// Five rooms, descending. A colonnade, a stair, a goddess's head,
-// one wing, one winged colossus. Coordinates are metres; the
-// surface is y = 0 and everything below is memory.
+// ANAMNESIS — world
+// Five movements, descending: a colonnade, a stair, a separated
+// face, a wing, and a hall where fragments agree from one point.
+// Coordinates are metres; y = 0 is the surface.
 // ═══════════════════════════════════════════════════════════════
 
 import * as THREE from 'three';
@@ -10,7 +10,7 @@ import { createMaterials } from './materials.js';
 import { buildStairs, buildPlinth, buildColumn, scaleUV } from './builders.js';
 import { makeGlowTexture, makeDust, makeRay } from './effects.js';
 import { buildWingFragment } from './wings.js';
-import { loadSculptures } from './assets.js';
+import { loadSculptures, sliceFigure, bakePigment } from './assets.js';
 
 const V3 = THREE.Vector3;
 
@@ -40,7 +40,7 @@ export class World {
       () => this._buildStair(),
       () => this._buildFace(),
       () => this._buildWing(),
-      () => this._buildRotunda(),
+      () => this._buildHall(),
       () => this._buildAtmosphere(),
     ];
   }
@@ -354,11 +354,16 @@ export class World {
     g.add(fill, fill.target);
   }
 
-  // ── V · the winged one — the rotunda ─────────────────────────
+  // ── IV–V · the agreement hall ────────────────────────────────
+  //   The winged figure is never present as one object. Its
+  //   fragments stand on separate armatures at different depths,
+  //   each scaled about one privileged camera position (CSTAR).
+  //   From that point — and only from that point — they agree
+  //   into a single body. Everywhere else they are archaeology.
 
-  _buildRotunda() {
-    const { wall, floor, marble } = this.materials;
-    const g = this.gRotunda = this._chamber([0.845, 1.1]);
+  _buildHall() {
+    const { wall, floor, marble, makeFragmentStone } = this.materials;
+    const g = this.gHall = this._chamber([0.845, 1.1]);
 
     // descent passage: stair z -124 → -136, y -12 → -18
     const stair = new THREE.Mesh(buildStairs({ width: 6.4, steps: 12, rise: 0.5, run: 1.0 }), this.materials.stone);
@@ -368,87 +373,124 @@ export class World {
     this._box(2.2, 18, 16, -4.3, -10, -130, wall, g, { uv: [1.6, 1.6] });
     this._box(2.2, 18, 16, 4.3, -10, -130, wall, g, { uv: [1.6, 1.6] });
 
-    // rotunda floor + drum
-    const rotFloor = new THREE.Mesh(new THREE.CircleGeometry(22, 72), floor);
-    rotFloor.rotation.x = -Math.PI / 2;
-    rotFloor.position.set(0, -18, -158);
-    rotFloor.receiveShadow = true;
-    g.add(rotFloor);
+    // the hall: long, dark, walls dissolving upward
+    this._floor(46, 60, 0, -18, -166, floor, g);
+    this._box(2.6, 30, 60, -23, -4, -166, wall, g, { uv: [5, 2.4] });
+    this._box(2.6, 30, 60, 23, -4, -166, wall, g, { uv: [5, 2.4] });
+    // far wall with one narrow slot of neutral daylight
+    this._box(20.4, 30, 2.6, -12.6, -4, -195, wall, g, { uv: [2, 2.4] });
+    this._box(20.4, 30, 2.6, 12.6, -4, -195, wall, g, { uv: [2, 2.4] });
+    this._box(4.8, 17, 2.6, 0, 9.5, -195, wall, g, { uv: [0.5, 1.6] });
+    this._box(1.3, 25, 2.6, -1.85, -5.5, -195, wall, g, { uv: [0.2, 2] });
+    this._box(1.3, 25, 2.6, 1.85, -5.5, -195, wall, g, { uv: [0.2, 2] });
+    this._slit(g, 2.4, 13, 0, -11.5, -195.5, 0, 0x6b6960);
+    const daylight = new THREE.SpotLight(0x99968c, 300, 70, 0.55, 0.9, 1.6);
+    daylight.position.set(0, -8, -199);
+    daylight.target.position.set(0, -14, -160);
+    g.add(daylight, daylight.target);
 
-    const drum = new THREE.Mesh(
-      new THREE.CylinderGeometry(22, 22, 46, 72, 1, true),
-      this.materials.wall.clone()
-    );
-    drum.material.side = THREE.BackSide;
-    drum.position.set(0, 5, -158);
-    drum.receiveShadow = true;
-    g.add(drum);
-
-    // the colossus — a winged figure, nine metres of stone
-    const plinth = new THREE.Mesh(buildPlinth({ w: 5.4, h: 2.8, d: 5.4 }), marble);
-    plinth.position.set(0, -18, -158);
-    plinth.castShadow = true;
-    plinth.receiveShadow = true;
-    g.add(plinth);
-
-    const colossus = new THREE.Mesh(this.models.lucy, this.materials.scan);
-    colossus.scale.setScalar(9.2);
-    colossus.position.set(0, -15.22, -158);
-    colossus.castShadow = true;
-    colossus.receiveShadow = true;
-    g.add(colossus);
-
-    // the oculus — one round wound of sky
-    // the sun enters the oculus at an angle, the way real light does
-    const oculus = new THREE.SpotLight(0xe3ddd0, 900, 70, 0.34, 0.6, 1.3);
-    oculus.position.set(0, 24, -158);
-    oculus.target.position.set(-8, -14, -160);
-    oculus.castShadow = this.quality.shadows;
-    if (oculus.castShadow) {
-      oculus.shadow.mapSize.set(2048, 2048);
-      oculus.shadow.bias = -0.0015;
-      oculus.shadow.normalBias = 0.05;
+    // two columns flank the wings from the privileged point
+    const colGeo = buildColumn({ height: 17, radius: 1.15, seed: 8 });
+    for (const [x, z, ry] of [[-7.9, -176, 1.9], [8.1, -177, 0.7]]) {
+      const c = new THREE.Mesh(colGeo, marble);
+      c.position.set(x, -18, z);
+      c.rotation.y = ry;
+      c.castShadow = true;
+      c.receiveShadow = true;
+      g.add(c);
     }
-    g.add(oculus, oculus.target);
-    this.oculusLight = oculus;
+    // an entablature fragment crosses above the composition
+    this._box(3.8, 2.0, 12, 0.5, -3.4, -172, wall, g, { cast: true, uv: [1, 2] });
 
-    const disc = new THREE.Mesh(
-      new THREE.CircleGeometry(3.0, 48),
-      new THREE.MeshBasicMaterial({ color: 0xd8d2c2, side: THREE.DoubleSide, fog: false })
-    );
-    disc.position.set(0, 23, -158);
-    disc.rotation.x = Math.PI / 2;
-    g.add(disc);
-    this.oculusDisc = disc;
+    // ── the fragments ─────────────────────────────────────────
+    // CSTAR is the privileged eye. P0 is where the complete figure
+    // would stand if it existed. Each fragment is scaled about
+    // CSTAR by its own factor k, so it keeps its projection from
+    // CSTAR while standing somewhere else entirely.
+    const CSTAR = this.CSTAR = new V3(0, -15.6, -138);
+    const P0 = new V3(0, -18, -160);
+    const S0 = 9.0;
+    const FLOOR_Y = -18;
 
-    const halo = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: this.glowTex, color: 0xf2e6cc, transparent: true, opacity: 0.20,
-      blending: THREE.AdditiveBlending, depthWrite: false,
-    }));
-    halo.scale.set(8, 8, 1);
-    halo.position.set(0, 22, -158);
-    g.add(halo);
-    this.halo = halo;
+    const frags = sliceFigure(this.models.lucy);
+    this.fragmentMats = [];
 
-    this.finalShaft = this._shaft(
-      g, new V3(0, 23, -158), new V3(-7.5, -18, -160), 2.4, 5.5, 0xded2b8, 0.11
-    );
+    const placed = [];
+    const placeFragment = (geo, kind, k, anchor, scale, ry = 0) => {
+      bakePigment(geo, kind, k * 37);
+      const mat = makeFragmentStone();
+      this.fragmentMats.push(mat);
+      const m = new THREE.Mesh(geo, mat);
+      m.position.copy(CSTAR).addScaledVector(new V3().subVectors(anchor, CSTAR), k);
+      m.scale.setScalar(k * scale);
+      m.rotation.y = ry;
+      m.castShadow = true;
+      m.receiveShadow = true;
+      g.add(m);
+      placed.push(m);
+      return m;
+    };
 
-    // cool rim from behind, tracing wings and shoulders
-    const back = new THREE.SpotLight(0x77808f, 380, 46, 0.55, 0.6, 1.4);
-    back.position.set(0, -2, -180);
-    back.target.position.set(0, -9, -157);
-    g.add(back, back.target);
-    this.rotundaBack = back;
+    placeFragment(frags.lower, 'lower', 0.85, P0, S0);
+    placeFragment(frags.torso, 'torso', 1.3, P0, S0);
+    placeFragment(frags.wingL, 'wing', 1.6, P0, S0);
+    placeFragment(frags.wingR, 'wing', 2.0, P0, S0);
+    // the head is the goddess's — a different stone, the right size
+    const headAnchor = new V3(0, P0.y + S0 * 0.75, P0.z);
+    placeFragment(this.models.igea.clone(), 'head', 0.66, headAnchor, 2.15, -0.1);
 
-    // faint neutral front fill so the drapery is never a silhouette
-    const front = new THREE.SpotLight(0xcabfa8, 200, 60, 0.5, 0.8, 1.6);
-    front.position.set(-8, -8, -136);
-    front.target.position.set(0, -10, -158);
-    g.add(front, front.target);
-    this.rotundaFront = front;
+    // ── armatures ─────────────────────────────────────────────
+    // Every fragment is physically held. Grounded fragments rest
+    // on plinth slabs; raised fragments hang from thin dark rods
+    // that vanish into the unlit height of the hall — the museum's
+    // suspension, visible from the side, silent from the front.
+    const bbox = new THREE.Box3();
+    const rodMat = new THREE.MeshStandardMaterial({ color: 0x161210, roughness: 0.95 });
+    for (const m of placed) {
+      m.updateWorldMatrix(true, false);
+      bbox.setFromObject(m);
+      const cx = (bbox.min.x + bbox.max.x) / 2;
+      const cz = (bbox.min.z + bbox.max.z) / 2;
+      const gap = bbox.min.y - FLOOR_Y;
+      if (gap < 1.4) {
+        // grounded: a low plinth slab under the footprint
+        const w = (bbox.max.x - bbox.min.x) * 0.72;
+        const d = (bbox.max.z - bbox.min.z) * 0.72;
+        this._box(w, Math.max(0.25, gap), d, cx, FLOOR_Y + gap / 2, cz, marble, g, { uv: [1, 0.3] });
+      } else {
+        // suspended: two rods from the dark above into the stone
+        const topY = bbox.max.y - (bbox.max.y - bbox.min.y) * 0.2;
+        const rodH = 8 - topY;
+        for (const rx of [cx - (bbox.max.x - bbox.min.x) * 0.22, cx + (bbox.max.x - bbox.min.x) * 0.22]) {
+          this._box(0.14, rodH, 0.14, rx, topY + rodH / 2, cz, rodMat, g, {});
+        }
+      }
+    }
 
-    this.dustRotunda = { center: [0, 0, -158], box: [9, 38, 9] };
+    // ── light ─────────────────────────────────────────────────
+    // One parallel daylight from high left: every fragment, at any
+    // depth, carries the same angle of light — the continuity that
+    // lets separate stones agree.
+    const key = new THREE.DirectionalLight(0xe6ddc9, 2.4);
+    key.position.set(-26, 16, -140);
+    key.target.position.set(4, -14, -172);
+    key.castShadow = this.quality.shadows;
+    if (key.castShadow) {
+      key.shadow.mapSize.set(2048, 2048);
+      key.shadow.camera.left = -34; key.shadow.camera.right = 34;
+      key.shadow.camera.top = 30; key.shadow.camera.bottom = -24;
+      key.shadow.camera.near = 2; key.shadow.camera.far = 110;
+      key.shadow.bias = -0.0012;
+      key.shadow.normalBias = 0.06;
+    }
+    g.add(key, key.target);
+    this.hallKey = key;
+
+    // faint cool rim from behind-right, separating the far wings
+    const rim = new THREE.SpotLight(0x6f7888, 300, 60, 0.7, 0.8, 1.6);
+    rim.position.set(16, -2, -192);
+    rim.target.position.set(-2, -12, -160);
+    g.add(rim, rim.target);
   }
 
   // ── atmosphere ───────────────────────────────────────────────
@@ -466,7 +508,6 @@ export class World {
       return d;
     };
     this.faceDust = add(this.dustVeiled, 90, 0.15, this.gVeiled);
-    add(this.dustRotunda, 130, 0.15, this.gRotunda);
 
     // ambient — barely there, cool above, warm-black below
     this.scene.add(new THREE.HemisphereLight(0x2c3340, 0x0d0a08, 0.5));
@@ -509,14 +550,14 @@ export class World {
       vfig.spot.intensity += ((vfig.base * reveal * (1 + vfig.boost * 0.22)) - vfig.spot.intensity) * Math.min(1, dt * 5);
     }
 
-    // ending: the room recedes; only the oculus stays
-    if (this.oculusLight) {
-      const end = THREE.MathUtils.smoothstep(progress, 0.955, 1.0);
-      this.oculusLight.intensity = 900 * (1 - end * 0.35);
-      this.rotundaFront.intensity = 200 * (1 - end * 0.8);
-      this.rotundaBack.intensity = 380 * (1 - end * 0.6);
-      this.finalShaft.material.uniforms.uIntensity.value = 0.11 + end * 0.09;
-      this.halo.material.opacity = 0.20 + end * 0.20;
+    // the agreement: alignment confidence drives pigment and calm.
+    // aWide steadies the frame on approach; aPeak reveals pigment
+    // only while the fragments actually agree.
+    const ss = THREE.MathUtils.smoothstep;
+    this.alignment = ss(progress, 0.90, 0.935) * (1 - ss(progress, 0.965, 0.995));
+    const aPeak = ss(progress, 0.922, 0.945) * (1 - ss(progress, 0.962, 0.982));
+    if (this.fragmentMats) {
+      for (const m of this.fragmentMats) m.customUniforms.uPigment.value = aPeak;
     }
   }
 }

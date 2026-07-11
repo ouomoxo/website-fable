@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// KATABASIS — effects
+// ANAMNESIS — effects
 // Sparse dust that lives only inside the light. A shaft given a
 // body. A final pass of tone, faint grain and a quiet vignette.
 // ═══════════════════════════════════════════════════════════════

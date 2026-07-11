@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>KATABASIS — The House of Forgotten Gods</title>
-<meta name="description" content="A descent in five rooms. A silent colonnade, a stair through darkness, a goddess's head, a single wing, and a winged colossus beneath the oculus." />
-<meta property="og:title" content="KATABASIS — The House of Forgotten Gods" />
-<meta property="og:description" content="A descent in five rooms. Scroll to go down." />
+<title>ANAMNESIS — A monument that exists only from one point of view</title>
+<meta name="description" content="A fragmented Greek monument that becomes complete only from the viewer's exact perspective. Separated stone fragments, one privileged point of view, and the traces of lost color." />
+<meta property="og:title" content="ANAMNESIS" />
+<meta property="og:description" content="A monument that exists only from one point of view." />
 <meta property="og:type" content="website" />
 <meta property="og:image" content="assets/poster.jpg" />
 <meta name="twitter:card" content="summary_large_image" />
@@ -31,7 +31,7 @@
 <!-- loader -->
 <div id="loader" role="status" aria-label="Loading the monument">
   <div class="loader-inner">
-    <div class="loader-word">KATABASIS</div>
+    <div class="loader-word">ANAMNESIS</div>
     <div class="loader-bar" aria-hidden="true"><span id="loader-fill"></span></div>
     <div id="loader-enter" hidden>
       <button id="enter" class="enter-btn" type="button">Enter</button>
@@ -42,16 +42,18 @@
 <!-- fallback (no WebGL) -->
 <div id="fallback" hidden>
   <div class="fallback-inner">
-    <h1>KATABASIS</h1>
-    <p class="italic">A descent into the house of forgotten gods.</p>
-    <p>This monument is carved from WebGL, and your browser has declined the chisel.
-       Return with hardware acceleration enabled, and the door will be where you left it.</p>
+    <h1>ANAMNESIS</h1>
+    <p class="italic">A monument that exists only from one point of view.</p>
+    <p>The monument is built from WebGL, and your browser has declined it.
+       Separated fragments of ancient stone stand in a dark hall; from one
+       exact position they agree into a single winged figure, and traces of
+       lost pigment briefly return. Memory does not preserve. It reconstructs.</p>
   </div>
 </div>
 
 <!-- chrome -->
 <header id="chrome" aria-label="Site">
-  <a href="#threshold" id="wordmark">KATABASIS</a>
+  <a href="#hero" id="wordmark">ANAMNESIS</a>
   <div id="chrome-right">
     <button id="motion-toggle" type="button" aria-pressed="false" title="Reduce motion">STILL</button>
     <button id="sound-toggle" type="button" aria-pressed="false" aria-label="Toggle sound">
@@ -61,73 +63,73 @@
   </div>
 </header>
 
-<!-- room navigation -->
-<nav id="nav" aria-label="Rooms">
-  <a href="#threshold" data-i="0"><span class="nv-n">I</span><span class="nv-t">Threshold</span></a>
-  <a href="#stair"     data-i="1"><span class="nv-n">II</span><span class="nv-t">The Stair</span></a>
-  <a href="#veiled"    data-i="2"><span class="nv-n">III</span><span class="nv-t">The Face</span></a>
-  <a href="#wing"      data-i="3"><span class="nv-n">IV</span><span class="nv-t">The Wing</span></a>
-  <a href="#winged"    data-i="4"><span class="nv-n">V</span><span class="nv-t">The Winged One</span></a>
-  <a href="#anabasis"  data-i="5"><span class="nv-n">VI</span><span class="nv-t">Anabasis</span></a>
+<!-- movement navigation -->
+<nav id="nav" aria-label="Movements">
+  <a href="#hero"       data-i="0"><span class="nv-n">I</span><span class="nv-t">The False Memory</span></a>
+  <a href="#separated"  data-i="1"><span class="nv-n">II</span><span class="nv-t">The Separation</span></a>
+  <a href="#measure"    data-i="2"><span class="nv-n">III</span><span class="nv-t">The Measure</span></a>
+  <a href="#agreement"  data-i="3"><span class="nv-n">IV</span><span class="nv-t">The Agreement</span></a>
+  <a href="#afterimage" data-i="4"><span class="nv-n">V</span><span class="nv-t">The Afterimage</span></a>
 </nav>
 
 <!-- copy -->
 <main id="copy">
 
-  <section class="chapter" id="threshold" data-range="0,0.075">
+  <section class="chapter" id="hero" data-range="0,0.075">
     <div class="ch-inner hero">
-      <h1 class="hero-title">KATABASIS</h1>
-      <p class="hero-sub">Where form outlives memory.</p>
-      <p class="scroll-hint"><span class="sh-line" aria-hidden="true"></span><span class="sr-only">Scroll to descend</span></p>
+      <h1 class="hero-title" aria-label="ANAMNESIS">
+        <span class="wm wm-top" aria-hidden="true">ANAMNESIS</span>
+        <span class="wm wm-bot" aria-hidden="true">ANAMNESIS</span>
+      </h1>
+      <p class="hero-sub">A monument that exists only from one point of view.</p>
+      <p class="scroll-hint"><span class="sh-line" aria-hidden="true"></span><span class="sr-only">Scroll to begin</span></p>
     </div>
   </section>
 
-  <section class="chapter" id="stair" data-range="0.30,0.41">
+  <section class="chapter" id="white" data-range="0.30,0.41">
     <div class="ch-inner left">
-      <p class="label">II — The Stair</p>
-      <h2>Leave the light<br/>at the door.</h2>
-      <p class="body">The stair was cut for slower centuries.
-      Go down as they went down — one darkness at a time.</p>
+      <p class="label">I — The False Memory</p>
+      <h2>White was never the beginning.<br/>It was what remained.</h2>
     </div>
   </section>
 
-  <section class="chapter" id="veiled" data-range="0.56,0.67">
+  <section class="chapter" id="separated" data-range="0.56,0.67">
     <div class="ch-inner left">
-      <p class="label">III — The Face</p>
-      <h2>The gods did not die.<br/>They were forgotten,<br/>which is slower.</h2>
-      <p class="body">You passed this face at the door.
-      The house keeps it closer now.</p>
+      <p class="label">II — The Separation</p>
+      <h2>Nothing here is missing.<br/>It is only separated.</h2>
     </div>
   </section>
 
-  <section class="chapter" id="wing" data-range="0.775,0.86">
+  <section class="chapter" id="between" data-range="0.775,0.86">
     <div class="ch-inner right">
-      <p class="label">IV — The Wing</p>
-      <h2>What survives<br/>is enough.</h2>
-      <p class="body">A single wing, recovered without its figure.
-      Nothing else was found. Nothing else was needed.</p>
+      <p class="label">II — The Separation</p>
+      <h2>The image is not inside the stone.<br/>It is between the stone and the eye.</h2>
     </div>
   </section>
 
-  <section class="chapter" id="winged" data-range="0.90,0.955">
-    <div class="ch-inner left low">
-      <p class="label">V — The Winged One</p>
-      <h2>One of them refused<br/>to be forgotten.</h2>
-      <p class="body">She stands where the light comes down,
-      wings open to a sky she cannot see. Look up.</p>
+  <section class="chapter" id="measure" data-range="0.872,0.905">
+    <div class="ch-inner left">
+      <p class="label">III — The Measure</p>
+      <h2>Stand where<br/>the fragments agree.</h2>
     </div>
   </section>
 
-  <section class="chapter" id="anabasis" data-range="0.968,1">
-    <div class="ch-inner center">
-      <p class="label">VI — Anabasis</p>
-      <h2 class="final-line">Go up.<br/>Tell them the stone is still here.</h2>
+  <section class="chapter" id="agreement" data-range="0.944,0.962">
+    <div class="ch-inner left low quiet">
+      <p class="label">IV — The Agreement</p>
+      <h2>For one moment,<br/>the body returns.</h2>
+    </div>
+  </section>
+
+  <section class="chapter" id="afterimage" data-range="0.974,1">
+    <div class="ch-inner left">
+      <p class="label">V — The Afterimage</p>
+      <h2>Move,<br/>and it becomes history again.</h2>
       <div class="colophon">
-        <p>KATABASIS is a digital monument. Nothing here was quarried;
-        the marble and the dark are computed for whoever descends.</p>
-        <p class="colophon-meta">Scans: Stanford Computer Graphics Laboratory · Cyberware ·
-        Set in Cormorant Garamond &amp; Inter · MMXXVI</p>
-        <button id="return-top" type="button">Descend again</button>
+        <p class="inscription">Memory does not preserve.<br/>It reconstructs.</p>
+        <p class="colophon-meta">Sculpture scans: Stanford Computer Graphics Laboratory (Lucy) · Cyberware (Igea)
+        · Architecture and pigment computed · Set in Cormorant Garamond &amp; Inter · MMXXVI</p>
+        <button id="return-top" type="button">Return to the beginning</button>
       </div>
     </div>
   </section>

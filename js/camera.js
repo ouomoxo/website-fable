@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// KATABASIS — camera
+// ANAMNESIS — camera
 // Not a tour: a sequence of composed photographs. Each shot moves
 // once, slowly, then holds. Between shots the frame is still.
 // ═══════════════════════════════════════════════════════════════
@@ -25,12 +25,13 @@ const SHOTS = [
   [0.680, 0.760, [0.2, -9.6, -78], [0, -10.2, -96], [0, -10.8, -100], [-0.5, -10.2, -112], 36, 36],
   // IV — the wing: a slow lateral reveal under raking light
   [0.775, 0.855, [-3.6, -9.9, -99], [2.4, -10.2, -99.8], [-1.4, -9.2, -112], [-0.9, -9.0, -112], 35, 35],
-  // descend toward the rotunda
-  [0.865, 0.900, [0, -12.2, -122], [0, -14.8, -133], [0, -12.5, -140], [0, -9.5, -158], 38, 39],
-  // V — the colossus, low angle, monumental
-  [0.905, 0.960, [0, -16.3, -136], [0, -15.7, -143.5], [0, -9.5, -158], [0, -7.8, -158], 40, 42],
-  // VI — anabasis: the camera rises; the gaze goes to the oculus
-  [0.965, 1.000, [0, -15.7, -143.5], [0, -10.6, -145], [0, -7.8, -158], [0, 7.5, -158], 42, 45],
+  // III — the measure: enter the hall off-axis; the fragments scatter
+  [0.865, 0.895, [0, -12.2, -122], [-6.2, -15.8, -140], [0, -12.5, -140], [3.5, -12.5, -164], 38, 36],
+  // converge on the privileged point; correspondence rises with every metre
+  [0.905, 0.938, [-6.2, -15.8, -140], [0, -15.6, -138], [3.5, -12.5, -164], [0, -13.1, -160], 36, 28],
+  // IV — the agreement: a long hold at CSTAR (0.938–0.968), then
+  // V — the afterimage: a small departure is enough to lose the body
+  [0.968, 1.000, [0, -15.6, -138], [7, -14.9, -150], [0, -13.1, -160], [-5.5, -12.3, -194], 28, 33],
 ];
 
 const smooth = (t) => t * t * (3 - 2 * t);
