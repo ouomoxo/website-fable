@@ -38,6 +38,7 @@ flameMat  = emit("flameMat",(1.0,0.58,0.24),22.0)
 # ── figure + pedestal ────────────────────────────────────────
 fig=B.load_one_mesh(_os.environ.get("LUCY_PLAIN_GLB","lucy_plain.glb"))
 B.stand_and_ground(fig); B.normalize_height(fig,2.0)
+B.transform_mesh(fig, Matrix.Rotation(math.pi,4,'Z'))   # her front is +Y in the scan; turn it to -Y (the camera)
 fig.data.materials.clear(); fig.data.materials.append(figMarble)
 for p in fig.data.polygons: p.use_smooth=True
 
