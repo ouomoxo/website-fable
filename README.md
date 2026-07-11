@@ -2,7 +2,9 @@
 
 A digital monument in five rooms: a descent past a goddess's head, one
 recovered wing, and a winged colossus beneath an oculus. Scroll is the
-dolly; the building refuses to be rushed.
+dolly; the building refuses to be rushed. Room III turns on a single
+perceptual shift: the chamber is first read as darkness and a rim of
+light, until the window wakes and the mass becomes a face.
 
 ![KATABASIS](assets/poster.jpg)
 
@@ -10,9 +12,9 @@ dolly; the building refuses to be rushed.
 
 | | Room | |
 |---|---|---|
-| I | **Threshold** | a blind monumental wall, one lit slit |
+| I | **Threshold** | a fallen colossal head outside a wall with one lit slit |
 | II | **The Stair** | a slot of darkness, one blade of light |
-| III | **The Face** | a goddess's head beneath a high window |
+| III | **The Face** | the same face again, found by a waking window |
 | IV | **The Wing** | a marble wing recovered without its figure |
 | V | **The Winged One** | a winged colossus where the light comes down |
 | VI | **Anabasis** | the way up |

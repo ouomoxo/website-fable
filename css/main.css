@@ -325,7 +325,7 @@ body.entered #nav { opacity: 1; }
   max-width: none;
   width: 100%;
   align-self: flex-start;
-  margin-top: clamp(90px, 16vh, 180px);
+  margin-top: clamp(80px, 13vh, 150px);
 }
 
 .hero-title {

@@ -98,10 +98,11 @@ export class World {
     return m;
   }
 
-  // ── I · threshold — a blind monumental wall, one lit slit ────
+  // ── I · threshold — a blind wall, one lit slit, and a fallen
+  //      colossal head resting outside the door ─────────────────
 
   _buildThreshold() {
-    const { wall, floor, marble } = this.materials;
+    const { wall, floor, marble, scan } = this.materials;
     const g = this.gThreshold = this._chamber([-0.1, 0.30]);
 
     // plaza
@@ -125,10 +126,31 @@ export class World {
     // a low threshold step
     this._box(SLIT_W + 2.4, 0.35, 2.4, 0, 0.175, 1.6, marble, g, { uv: [2, 0.3] });
 
+    // the fallen colossus — a head set down outside its own house,
+    // face turned back toward the light that leaves through the door
+    const head = new THREE.Mesh(this.models.igea, scan);
+    head.scale.setScalar(9.0);
+    head.position.set(8.8, -0.95, 14);
+    head.rotation.set(-0.04, -0.95, -0.10);           // settled, listening to the door
+    head.castShadow = true;
+    head.receiveShadow = true;
+    g.add(head);
+
+    // a pale sliver of sky grazes the face from high in front
+    const sliver = new THREE.SpotLight(0xbcb2a0, 340, 60, 0.24, 0.55, 1.5);
+    sliver.position.set(-4, 28, 38);
+    sliver.target.position.set(8.8, 4, 14);
+    g.add(sliver, sliver.target);
+
+    // the door's spill, returned from the pale floor into the jaw
+    const bounce = new THREE.PointLight(0xffdcae, 85, 20, 1.6);
+    bounce.position.set(4.5, 1.0, 11.5);
+    g.add(bounce);
+
     // vestibule: a short dark passage before the stair goes down
     this._box(1.8, 15, 11, -4.1, 6.5, -5.5, wall, g, { uv: [1.2, 1.6] });
     this._box(1.8, 15, 11, 4.1, 6.5, -5.5, wall, g, { uv: [1.2, 1.6] });
-    this._box(12, 1.6, 12, 0, 13.3, -5.5, wall, g, { uv: [1.4, 1.4] });
+    this._box(12, 1.6, 11, 0, 13.3, -6.6, wall, g, { uv: [1.4, 1.4] });
 
     // warm light from inside, spilling through the slit onto the plaza
     const inner = new THREE.SpotLight(0xffdfb0, 480, 70, 0.42, 0.55, 1.4);
@@ -239,10 +261,13 @@ export class World {
     }
     g.add(key, key.target);
     this.veiled.push({ spot: key, base: 520, pos: new V3(5, -9.2, -72), boost: 0 });
+    this.faceKey = key;
 
-    // the window itself, and the body of its light
-    this._slit(g, 1.3, 6.5, -15.9, 7, -65.5, Math.PI / 2, 0xd4bd96);
-    this._shaft(g, new V3(-14.5, 7.5, -65), new V3(4, -11, -71.5), 0.9, 4.6, 0xe8dcc2, 0.22);
+    // the window itself, and the body of its light — both wake with
+    // the reveal: the room is first read as darkness and a rim
+    this.faceSlit = this._slit(g, 1.3, 6.5, -15.9, 7, -65.5, Math.PI / 2, 0xd4bd96, 0.999);
+    this.faceSlit.material.transparent = true;
+    this.faceShaft = this._shaft(g, new V3(-14.5, 7.5, -65), new V3(4, -11, -71.5), 0.9, 4.6, 0xe8dcc2, 0.22);
 
     // sparse dust, alive only inside the shaft
     this.dustVeiled = { center: [-5, -2, -68.5], box: [8, 14, 5] };
@@ -254,9 +279,10 @@ export class World {
     g.add(rim, rim.target);
 
     // bounce off the floor pool — soft, warm, from below
-    const bounce = new THREE.PointLight(0xd9c8a8, 9, 9, 1.8);
-    bounce.position.set(3.5, -10.5, -70);
-    g.add(bounce);
+    const fbounce = new THREE.PointLight(0xd9c8a8, 9, 9, 1.8);
+    fbounce.position.set(3.5, -10.5, -70);
+    g.add(fbounce);
+    this.faceBounce = fbounce;
 
     // the far wall barely exists — enough to keep the dark material
     const wash = new THREE.SpotLight(0x3d4450, 220, 50, 0.9, 0.9, 1.7);
@@ -420,15 +446,16 @@ export class World {
   _buildAtmosphere() {
     const q = this.quality.dustScale;
     const add = (spec, count, opacity, group) => {
-      if (!spec) return;
+      if (!spec) return null;
       const d = makeDust({
         count: Math.round(count * q),
         box: spec.box, center: spec.center, opacity, map: this.glowTex,
       });
       group.add(d);
       this.dusts.push(d);
+      return d;
     };
-    add(this.dustVeiled, 90, 0.15, this.gVeiled);
+    this.faceDust = add(this.dustVeiled, 90, 0.15, this.gVeiled);
     add(this.dustRotunda, 130, 0.15, this.gRotunda);
 
     // ambient — barely there, cool above, warm-black below
@@ -463,9 +490,19 @@ export class World {
     for (const d of this.dusts) if (d.parent.visible) d.material.uniforms.uTime.value = time;
     for (const r of this.rays) if (r.parent.visible) r.material.uniforms.uTime.value = time;
 
+    // the turn: the window light finds the face only as you commit
+    // to the room — first a rim in darkness, then a goddess
+    const reveal = 0.04 + 0.96 * THREE.MathUtils.smoothstep(progress, 0.46, 0.575);
+    if (this.faceKey) {
+      this.faceSlit.material.opacity = reveal;
+      this.faceShaft.material.uniforms.uIntensity.value = 0.22 * reveal;
+      this.faceBounce.intensity = 9 * reveal;
+      if (this.faceDust) this.faceDust.material.uniforms.uOpacity.value = 0.15 * reveal;
+    }
+
     // attention light on the head — an almost imperceptible swell
     for (const vfig of this.veiled) {
-      vfig.spot.intensity += ((vfig.base * (1 + vfig.boost * 0.22)) - vfig.spot.intensity) * Math.min(1, dt * 3);
+      vfig.spot.intensity += ((vfig.base * reveal * (1 + vfig.boost * 0.22)) - vfig.spot.intensity) * Math.min(1, dt * 5);
     }
 
     // ending: the room recedes; only the oculus stays

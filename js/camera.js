@@ -86,9 +86,14 @@ export class CameraRig {
     this._look.x += px * 1.1;
     this._look.y += py * -0.7;
     // portrait screens: aim lower so the subject sits in the upper
-    // frame and the copy owns the floor
-    if (this.camera.aspect < 0.75) this._look.y -= 2.2;
-    else if (this.camera.aspect < 1) this._look.y -= 0.9;
+    // frame and the copy owns the floor; at the threshold, pan
+    // toward the fallen head so the hero keeps its subject
+    if (this.camera.aspect < 0.75) {
+      this._look.y -= 2.2;
+      this._look.x += 3.3 * Math.max(0, 1 - t / 0.1);
+    } else if (this.camera.aspect < 1) {
+      this._look.y -= 0.9;
+    }
     this.camera.up.copy(this._up);
     this.camera.lookAt(this._look);
 
