@@ -276,13 +276,94 @@ export class World {
     shaft.rotation.set(0.10, 0, 0.13);
     shaft.renderOrder = 3;
     this.scene.add(shaft);
+
+    this._buildDust();
+  }
+
+  // motes of dust drifting in the shaft — what makes the light a volume.
+  // a shader fades each mote by its distance from the shaft axis, so dust
+  // only glows where the light actually falls, never as a starfield
+  _buildDust() {
+    const N = this.quality.assetTier === 'lo' ? 150 : 320;
+    const AX = -0.3, AZ = 0.3, RAD = 1.9;                // shaft footprint
+    const pos = new Float32Array(N * 3);
+    const bright = new Float32Array(N);
+    const seed = [];
+    for (let i = 0; i < N; i++) {
+      // spawn within a disc under the shaft (plus a little spill)
+      const ang = Math.random() * 6.2832;
+      const rr = Math.pow(Math.random(), 0.8) * RAD * 1.1;
+      const x = AX + Math.cos(ang) * rr;
+      const z = AZ + Math.sin(ang) * rr;
+      const y0 = 0.2 + Math.random() * 7.4;
+      pos[i * 3] = x; pos[i * 3 + 1] = y0; pos[i * 3 + 2] = z;
+      bright[i] = 0.25 + Math.pow(Math.random(), 1.8) * 0.75;   // most are faint
+      seed.push({ x, z, y0, rng: 7.6, ph: Math.random() * 6.28,
+        sp: 0.12 + Math.random() * 0.5, amp: 0.04 + Math.random() * 0.16,
+        yd: 0.04 + Math.random() * 0.11 });
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('aBright', new THREE.BufferAttribute(bright, 1));
+    const mat = new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      uniforms: {
+        uColor: { value: new THREE.Color(0xffeccb) },
+        uAxis: { value: new THREE.Vector2(AX, AZ) }, uRad: { value: RAD },
+        uSize: { value: 30.0 }, uTwk: { value: 0 },
+      },
+      vertexShader: `
+        uniform vec2 uAxis; uniform float uRad; uniform float uSize; uniform float uTwk;
+        attribute float aBright; varying float vA;
+        void main() {
+          float d = distance(position.xz, uAxis);
+          float radial = smoothstep(uRad, uRad * 0.2, d);    // bright on axis
+          float height = smoothstep(7.8, 5.0, position.y) * smoothstep(0.0, 1.0, position.y);
+          float tw = 0.7 + 0.3 * sin(uTwk + position.y * 3.1 + position.x * 5.0);
+          vA = radial * height * aBright * tw;
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          gl_PointSize = uSize * (0.6 + aBright) / max(0.4, -mv.z);
+          gl_Position = projectionMatrix * mv;
+        }`,
+      fragmentShader: `
+        uniform vec3 uColor; varying float vA;
+        void main() {
+          float r = length(gl_PointCoord - 0.5);
+          if (r > 0.5) discard;
+          float soft = smoothstep(0.5, 0.0, r);
+          gl_FragColor = vec4(uColor, vA * soft * 0.34);
+        }`,
+    });
+    this.dust = new THREE.Points(geo, mat);
+    this.dust.renderOrder = 2;
+    this.dust.frustumCulled = false;
+    this.dustSeed = seed;
+    this.scene.add(this.dust);
+  }
+
+  _updateDust(t) {
+    if (!this.dust) return;
+    this.dust.material.uniforms.uTwk.value = t * 1.6;
+    const a = this.dust.geometry.attributes.position;
+    const s = this.dustSeed;
+    for (let i = 0; i < s.length; i++) {
+      const d = s[i];
+      let y = d.y0 - ((t * d.yd) % d.rng);
+      if (y < 0.1) y += d.rng;
+      a.array[i * 3] = d.x + Math.sin(t * d.sp + d.ph) * d.amp;
+      a.array[i * 3 + 1] = y;
+      a.array[i * 3 + 2] = d.z + Math.cos(t * d.sp * 0.8 + d.ph) * d.amp;
+    }
+    a.needsUpdate = true;
   }
 
   // ── per-frame: the flame breathes; the day turns late ────────
 
-  update(progress) {
+  update(progress, time = 0) {
     if (!this.key) return;
-    const t = this.time;
+    this.time = time;
+    const t = time;
+    this._updateDust(t);
     // flame flicker — small, warm, alive
     if (this.flame) {
       const fl = 0.9 + 0.14 * Math.sin(t * 11.0) + 0.08 * Math.sin(t * 27.0 + 1.3);

@@ -238,7 +238,7 @@ function loop() {
   if (Math.abs(state.progress - state.target) < 0.0004) state.progress = state.target;
 
   const p = state.progress;
-  world.update(p);
+  world.update(p, state.time);
   rig.update(p);
   updateDOM(p);
 
