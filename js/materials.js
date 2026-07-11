@@ -212,6 +212,9 @@ export function createMaterials(renderer, quality) {
 
   const bumpFine = makeBumpTexture({ size: 256, scale: 1.3, seed: 12, strength: 1 });
   bumpFine.repeat.set(2, 2);
+  // finer crystalline grain for the figure's stone
+  const bumpFigure = makeBumpTexture({ size: 256, scale: 2.2, seed: 44, strength: 1.4 });
+  bumpFigure.repeat.set(6, 6);
   const bumpCoarse = makeBumpTexture({ size: 256, scale: 1.8, seed: 31, strength: 1.6 });
   bumpCoarse.repeat.set(3, 2);
 
@@ -221,54 +224,36 @@ export function createMaterials(renderer, quality) {
     map: marbleTex,
     bumpMap: bumpFine,
     bumpScale: 0.6,
-    roughness: 0.70,
+    roughness: 0.72,
     metalness: 0.0,
     envMap: env,
-    envMapIntensity: 0.20,
-  });
-
-  // figures carry baked cavity shading in vertex colors
-  const figure = new THREE.MeshStandardMaterial({
-    map: figureTex,
-    bumpMap: bumpFine,
-    bumpScale: 0.35,
-    roughness: 0.78,
-    metalness: 0.0,
-    envMap: env,
-    envMapIntensity: 0.10,
-    vertexColors: true,
+    envMapIntensity: 0.12,
   });
 
   // scanned sculpture — no UVs; tonal variation lives in vertex colors
+  // the figure's stone: subtle crystalline bump so close views
+  // read as carved marble, never as soap
   const scan = new THREE.MeshStandardMaterial({
-    color: 0xb8ad99,
-    roughness: 0.78,
+    color: 0xaba295,
+    bumpMap: bumpFigure,
+    bumpScale: 0.5,
+    roughness: 0.80,
     metalness: 0.0,
     envMap: env,
     envMapIntensity: 0.15,
     vertexColors: true,
+    side: THREE.DoubleSide,
   });
 
-  // fragment stone: the same material carrying traces of pigment in
-  // the aPig vertex attribute; uPigment reveals them near alignment
-  const makeFragmentStone = () => {
-    const m = scan.clone();
-    m.customUniforms = { uPigment: { value: 0 } };
-    m.onBeforeCompile = (shader) => {
-      shader.uniforms.uPigment = m.customUniforms.uPigment;
-      shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', '#include <common>\nattribute vec4 aPig;\nvarying vec4 vPig;')
-        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvPig = aPig;');
-      shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', '#include <common>\nuniform float uPigment;\nvarying vec4 vPig;')
-        .replace(
-          '#include <color_fragment>',
-          '#include <color_fragment>\n' +
-          'diffuseColor.rgb = mix(diffuseColor.rgb, vPig.rgb, vPig.a * uPigment);'
-        );
-    };
-    return m;
-  };
+  // the scanned hand has no UVs — same stone, no bump map
+  const scanPlain = scan.clone();
+  scanPlain.bumpMap = null;
+  scanPlain.side = THREE.FrontSide;
+
+  // feathers are open shells — carved from the same stone, but
+  // visible from both faces
+  const feather = scan.clone();
+  feather.side = THREE.DoubleSide;
 
   const wall = new THREE.MeshStandardMaterial({
     map: wallTex,
@@ -284,24 +269,33 @@ export function createMaterials(renderer, quality) {
     map: floorTex,
     bumpMap: bumpFine,
     bumpScale: 0.3,
-    roughness: 0.55,
+    roughness: 0.78,
     metalness: 0.0,
     envMap: env,
-    envMapIntensity: 0.35,
+    envMapIntensity: 0.18,
   });
 
+  // the rough-hewn base: paler quarry stone, coarse
+  const baseTex = makeLimestoneTexture({
+    size: texSize,
+    base: [0.44, 0.415, 0.37],
+    range: 0.14,
+    bands: 0.03,
+    scale: 1.8,
+    seed: 133,
+  });
+  baseTex.repeat.set(2, 1);
   const stone = new THREE.MeshStandardMaterial({
-    map: wallTex,
+    map: baseTex,
     bumpMap: bumpCoarse,
-    bumpScale: 0.9,
-    color: 0xcfc8bc,
-    roughness: 0.88,
+    bumpScale: 1.1,
+    roughness: 0.92,
     metalness: 0.0,
     envMap: env,
-    envMapIntensity: 0.12,
+    envMapIntensity: 0.10,
   });
 
-  return { marble, figure, scan, makeFragmentStone, wall, floor, stone, env };
+  return { marble, scan, scanPlain, feather, wall, floor, stone, env };
 }
 
 // dim architectural environment — one pale overhead opening,
@@ -315,7 +309,7 @@ function makeEnvironmentSafe(renderer) {
     ));
     const slit = new THREE.Mesh(
       new THREE.PlaneGeometry(14, 5),
-      new THREE.MeshBasicMaterial({ color: 0x8b93a0 })
+      new THREE.MeshBasicMaterial({ color: 0x6d6c68 })
     );
     slit.position.set(0, 40, 0);
     slit.rotation.x = Math.PI / 2;

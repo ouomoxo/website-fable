@@ -1,14 +1,17 @@
-# ANAMNESIS — asset ledger
+# Asset ledger — AFTER EMELYN
 
-| Asset | Role | Source / license | Tris (hi/lo) | Size (hi/lo) | Framing limit |
-|---|---|---|---|---|---|
-| lucy.glb | fragment donor (sliced: lower, torso, wingL, wingR; head discarded) | Stanford 3D Scanning Repository, acknowledgment terms | 100k / 45k | 1.03 MB / 0.47 MB | medium; camera never nearer than ~9 m equivalent |
-| igea.glb | the face (hall), the relic (colonnade), the head (movement II) | Cyberware sample scan, research-redistributed | 269k / 81k | 2.62 MB / 0.83 MB | close-medium |
-| columns, piers, walls, stairs, plinths, rods | architecture | original, procedural | n/a | code | any |
-| carved wing | movement II fragment | original, parametric | 8k | code | medium |
-| marble/limestone/pigment textures | materials | original, canvas-computed | — | runtime | any |
-| audio | opt-in ambience | original, synthesized | — | runtime | — |
+| Asset | Origin | License | Bytes (approx) | Notes |
+|---|---|---|---|---|
+| `assets/models/hand.glb` | xeogl example hand (OBJ) → own converter (`Loop subdivide ×1, weld, meshopt`) | MIT | 534 KB | 53.9k tris; hi tier |
+| `assets/models/hand-lo.glb` | same, simplified | MIT | 142 KB | 13.5k tris; touch tier |
+| `assets/fonts/*.woff2` | Cormorant Garamond, Inter | SIL OFL 1.1 | ~90 KB | subset woff2 |
+| `js/lib/three.module.min.js` | three.js r160 | MIT | 666 KB | pinned, vendored |
+| `js/lib/GLTFLoader.js`, `BufferGeometryUtils.js`, `meshopt_decoder.module.js` | three.js r160 examples | MIT | — | vendored |
+| `assets/poster.jpg` | rendered from this project's live scene | project | 320 KB | og:image |
+| `assets/mark.svg` | drawn for this project | project | <1 KB | favicon |
 
-Modifications to scans: decimation (upstream mirror), meshopt-compressed GLB
-(own pipeline: weld, smooth normals, optional simplify), runtime slicing,
-per-vertex tonal tint and pigment mask. See ATTRIBUTION.md.
+Everything else is generated at load time by project code: the body
+drape, both wings, the hair coil, pedestal, rough base (js/monument.js)
+and all textures — marble, limestone, quarry stone, bump/grain fields
+(js/materials.js, canvas-computed). No downloaded textures, no scans of
+the historical sculpture.

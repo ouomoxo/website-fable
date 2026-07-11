@@ -1,24 +1,42 @@
-# ANAMNESIS — QA report
+# QA report — AFTER EMELYN
 
-Performed (headless Chromium 1440×810 and 390×844 touch emulation, one
-compressed frame per check, zero console/page errors in every run):
+Date: 2026-07-11 · Environment: headless Chromium (Playwright),
+python http.server. Visual review: one frame per shot, desktop
+1440×810 and portrait 390×844.
 
-- Hero (desktop + portrait), wordmark agreement animation end state
-- Colonnade perception slide and pier occlusion pass (0.16 / 0.25)
-- Stair blade (0.35); face light-turn dark→lit (0.45 / 0.52 / 0.62)
-- Wing raking shot (0.82); doorway preview (0.72)
-- Measure off-axis scatter (0.885): fragments read as separate, supported
-- Agreement (0.95 desktop + portrait): figure complete, pigment visible
-- Departure (0.982): body separates by perspective; ending (1.0) with slot
-- Repeated replay via probe jumps; reverse scroll implicitly via probe
-- Loader path (assets download → build → enter) exercised on every capture
+## Functional
 
-Known limitations (honest):
-- Lucy's decimation softens under close framing; the shot list respects it.
-- Suspension rods are visible above fragments from oblique views by design;
-  from CSTAR they read as thin dark verticals in the unlit height.
-- Safari/WebKit and Firefox not directly testable in this environment;
-  code avoids APIs outside their common support (ES modules, WebGL2 with
-  UnsignedByte fallback path in the post pass).
-- github.io unreachable from the build environment, so Pages serving was
-  not end-to-end verified here.
+| Check | Result |
+|---|---|
+| Load → loader → Enter | PASS (no console errors) |
+| Full forward scroll sweep (0→1) | PASS, reaches 1.0, no errors |
+| Reverse sweep (1→0) | PASS |
+| Keyboard End / Home | PASS (p→1, p→0) |
+| Nav movement links (e.g. III) | PASS (lands mid-range 0.696 for 0.66–0.74) |
+| Sound toggle on/off | PASS (aria-pressed true/false; opt-in only) |
+| STILL toggle | PASS |
+| prefers-reduced-motion | PASS (STILL auto-enabled) |
+| WebGL blocked | PASS (text fallback shown, loader removed) |
+| Console errors across all checks | NONE |
+
+## Visual (frames inspected at full size)
+
+| Beat | Verdict |
+|---|---|
+| S01 fluted wall | PASS — reads as carved relief in raking light |
+| S02 colonnade → feathers | PASS — ribs converge on scalloped tips |
+| S03 ravine of falls | PASS — metric folds, clean lip silhouette |
+| S04 hanging hand | PASS — limp hand below hem, wrist lost in cloth |
+| S05 hidden face | PASS — hair coil only; no face at any angle |
+| S06 carved vs sawn | PASS |
+| S07 withdrawal mid | PASS — full figure resolves; angel legible |
+| S08/S10 monument + distance | PASS — late-light state reads |
+| Mobile hero / withdrawal | PASS (portrait offsets keep monument high) |
+| Fallback page | PASS |
+
+## Known limits (accepted this pass)
+
+- The hair coil reads slightly pastry-like in extreme close-up.
+- Wing relief shows mild quilting on its shaded back face.
+- The figure is deliberately stylized — an original monument, not a
+  reconstruction (see docs/research.md).

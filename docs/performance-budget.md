@@ -1,12 +1,17 @@
-# ANAMNESIS — performance budget
+# Performance budget — AFTER EMELYN
 
-- Initial payload: HTML+CSS+JS ≈ 1.4 MB (three.js dominant), fonts 3×~50 KB.
-- Sculpture: hi tier 3.65 MB, lo (touch) tier 1.30 MB, loaded during the
-  loader with real progress; nothing else blocks entry.
-- Textures: computed on canvas at 512 (desktop) / 384 (touch); no image files.
-- Geometry: ≤ 470k tris resident worst case (hall, hi tier); chambers are
-  visibility-culled by scroll range so typical frames draw far less.
-- Device tiers: touch → lo GLBs, smaller textures, reduced dust; adaptive
-  pixel-ratio drop (×0.72) if sustained frame time > 34 ms.
-- Fallbacks: reduced-motion honored + STILL toggle (instant scroll, no sway);
-  no-WebGL → designed static page.
+| Budget | Target | Actual (desktop hi tier) |
+|---|---|---|
+| JS payload (three.js + app, uncompressed) | < 1.0 MB | ≈ 0.80 MB |
+| Models | < 700 KB | 534 KB (hand.glb) / 142 KB (lo) |
+| Fonts | < 120 KB | ≈ 90 KB |
+| Textures | 0 downloaded | 0 (all canvas-computed) |
+| Triangles in scene | < 250k | ≈ 150k (hi), ≈ 90k (lo) |
+| Draw calls | < 40 | ≈ 20 |
+| Shadow maps | 1 × 2048 | 1 × 2048 (key only) |
+| Post passes | 1 | 1 |
+| Load-to-enter (mid laptop, warm cache) | < 4 s | ≈ 2–3 s (procedural carving dominates) |
+
+Degradation ladder: touch tier (dpr ≤ 1.8, 384px textures, detail 0.7,
+lo model) → runtime FPS probe drops pixel ratio once by ×0.72 if the
+90-frame average exceeds 34 ms → STILL mode removes damping/sway cost.

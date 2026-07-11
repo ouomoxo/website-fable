@@ -1,20 +1,41 @@
-# ANAMNESIS — shot bible
+# AFTER EMELYN — shot bible
 
-Camera = scroll-driven shot list (js/camera.js). Each entry: move once,
-slowly, then hold. Values are world metres; lenses are fov equivalents.
+One scene, one monument, ten photographs of it. The camera is mounted;
+pointer deviation is optical-only (≤ 0.16 units of look drift). Between
+shots the previous composition holds — scroll gaps are rests, not cuts.
 
-| Shot | Range | Purpose | Framing | Light | Text |
-|---|---|---|---|---|---|
-| A Hero colonnade | 0–0.105 | authority, stillness | fg column crops right edge; two files recede; piers + dark slot off-centre; head relic barely visible | one warm-neutral daylight from unseen left opening; long shadows | wordmark + one line, lower left |
-| A2 Perception | 0.115–0.205 | first movement | slide between files; relic emerges | same | none |
-| A3 Threshold | 0.215–0.275 | occlusion transition | pass between piers into dark | stair blade ahead | none |
-| B The stair | 0.285–0.41 | descent, the white recedes | slot canyon, one light blade | high slit | "White was never the beginning." |
-| C Face in separation | 0.435–0.66 | fragment with support; light-turn | head on plinth, window wakes from rim to full | window key (reveal-gated) | "Nothing here is missing." |
-| C2 Wing / drapery-as-architecture | 0.775–0.855 | perceptual reversal rehearsal | wing under raking light; shadow projection | low slit rake | "The image is not inside the stone." |
-| D Partial alignment (measure) | 0.865–0.938 | anticipation | off-axis entry: fragments scatter; converge toward CSTAR | hall directional | "Stand where the fragments agree." |
-| E The agreement | hold 0.938–0.968 | climax; pigment | CSTAR (0,-15.6,-138) → (0,-13.1,-160), fov 28 (~85mm) | one parallel daylight; slot beyond | "For one moment, the body returns." (late, small) |
-| F The loss | 0.968–1.0 | reversal | 7 m lateral departure; figure separates; end on slot right-third | same, breaking | "Move, and it becomes history again." + inscription |
+Progress values are scroll progress (0–1). All positions in metres,
+world space. The slab top is y = 1.94; the crest of the body ≈ 2.75;
+the wing shoulder peaks ≈ 3.0.
 
-Mobile: same camera positions (alignment is position-dependent, not
-fov-dependent); portrait gets +13° fov and a lowered aim so subjects sit
-high and copy owns the floor. Verified at 390×844.
+| Shot | Range | What the visitor believes | What it actually is |
+|---|---|---|---|
+| S01 | 0.000–0.060 | A fluted stone wall in raking light | The falling wing's ribbed vane, straight on |
+| S02 | 0.080–0.200 | A colonnade seen from above — until the column ends scallop | The same vane, ribs converging on feather tips |
+| S03 | 0.240–0.360 | A ravine of carved stone | The drape's head-end falls under the slab cornice |
+| S04 | 0.400–0.500 | A ledge — holding a human hand | The bare hand below the hem; wrist lost in cloth |
+| S05 | 0.540–0.620 | — (recognition begins) | The knot of hair against the wing wall; face never shown |
+| S06 | 0.660–0.740 | — | Carved feather ends hanging against the sawn pedestal face |
+| S07 | 0.780–0.920 | **The withdrawal** — the only long move | Pull back and up-left to (−6.8, 2.6, 8.6); fov 26→36; the angel resolves |
+| S08 | 0.920–0.965 | The monument holds | Static hold; movement V copy enters after the move ends |
+| S10 | 0.965–1.000 | Distance; the weight remains | Drift to (−10.2, 2.2, 12.6), fov 40; late light state |
+
+## Light states
+
+One DirectionalLight key (soft daylight, front-left, out of frame),
+hemisphere fill, a faint warm frontal bounce (directional — never draws
+a pool), and a desaturated rim from behind the niche. From p = 0.93 the
+day turns late: key lowers, cools and dims; fills fall; fog thickens.
+Nothing else changes. The sculpture itself never moves.
+
+## Portrait (mobile)
+
+Portrait aspect aims the look target 0.34 lower and widens fov by +9°,
+so the monument rides high and the copy owns the ground. All key beats
+were re-checked at 390×844.
+
+## Forbidden
+
+Orbit controls, handheld shake, dolly-zoom trickery, camera moves
+through geometry, any shot that reveals the face, any motion of the
+figure itself.

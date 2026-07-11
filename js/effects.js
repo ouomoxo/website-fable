@@ -1,153 +1,10 @@
 // ═══════════════════════════════════════════════════════════════
-// ANAMNESIS — effects
-// Sparse dust that lives only inside the light. A shaft given a
-// body. A final pass of tone, faint grain and a quiet vignette.
+// AFTER EMELYN — effects
+// One finishing pass: tone, a gentle split grade, near-invisible
+// grain, quiet vignette, entrance black.
 // ═══════════════════════════════════════════════════════════════
 
 import * as THREE from 'three';
-
-// ── soft radial sprite texture ─────────────────────────────────
-
-export function makeGlowTexture(size = 128, inner = 'rgba(255,244,224,1)', mid = 'rgba(255,236,208,0.25)') {
-  const c = document.createElement('canvas');
-  c.width = c.height = size;
-  const ctx = c.getContext('2d');
-  const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-  g.addColorStop(0, inner);
-  g.addColorStop(0.35, mid);
-  g.addColorStop(1, 'rgba(255,236,208,0)');
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, size, size);
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
-
-// ── dust ───────────────────────────────────────────────────────
-// One Points cloud per light volume. Motes drift very slowly and
-// exist only while crossing the shaft — never as decoration.
-
-const DUST_VERT = /* glsl */`
-  attribute float aSeed;
-  attribute float aSize;
-  uniform float uTime;
-  varying float vFade;
-  void main() {
-    vec3 p = position;
-    float t = uTime * 0.03 + aSeed * 43.7;
-    p.x += sin(t * 1.7 + aSeed * 6.28) * 0.4;
-    p.y += sin(t * 1.1 + aSeed * 12.4) * 0.3 + sin(t * 0.31) * 0.2;
-    p.z += cos(t * 1.3 + aSeed * 9.1) * 0.4;
-    vec4 mv = modelViewMatrix * vec4(p, 1.0);
-    float dist = -mv.z;
-    vFade = smoothstep(1.5, 5.0, dist) * (1.0 - smoothstep(14.0, 26.0, dist));
-    float size = aSize * (140.0 / dist);
-    vFade *= smoothstep(0.7, 2.2, size);   // sub-pixel motes dissolve instead of shimmering
-    gl_PointSize = max(size, 1.0);
-    gl_Position = projectionMatrix * mv;
-  }
-`;
-
-const DUST_FRAG = /* glsl */`
-  uniform sampler2D uMap;
-  uniform float uOpacity;
-  varying float vFade;
-  void main() {
-    vec4 tex = texture2D(uMap, gl_PointCoord);
-    float a = tex.a * vFade * uOpacity;
-    if (a < 0.003) discard;
-    gl_FragColor = vec4(vec3(1.0, 0.955, 0.88) * tex.rgb, a);
-  }
-`;
-
-export function makeDust({ count = 120, box = [6, 12, 6], center = [0, 0, 0], opacity = 0.3, map }) {
-  const geo = new THREE.BufferGeometry();
-  const positions = new Float32Array(count * 3);
-  const seeds = new Float32Array(count);
-  const sizes = new Float32Array(count);
-  for (let i = 0; i < count; i++) {
-    positions[i * 3 + 0] = center[0] + (Math.random() - 0.5) * box[0];
-    positions[i * 3 + 1] = center[1] + (Math.random() - 0.5) * box[1];
-    positions[i * 3 + 2] = center[2] + (Math.random() - 0.5) * box[2];
-    seeds[i] = Math.random();
-    sizes[i] = 0.12 + Math.random() * 0.4;
-  }
-  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  geo.setAttribute('aSeed', new THREE.BufferAttribute(seeds, 1));
-  geo.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
-
-  const mat = new THREE.ShaderMaterial({
-    vertexShader: DUST_VERT,
-    fragmentShader: DUST_FRAG,
-    uniforms: {
-      uTime: { value: 0 },
-      uMap: { value: map },
-      uOpacity: { value: opacity },
-    },
-    transparent: true,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-  });
-
-  const points = new THREE.Points(geo, mat);
-  points.frustumCulled = false;
-  return points;
-}
-
-// ── light shaft cone ───────────────────────────────────────────
-
-const RAY_VERT = /* glsl */`
-  varying vec2 vUv;
-  void main() {
-    vUv = uv;
-    gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0);
-  }
-`;
-
-const RAY_FRAG = /* glsl */`
-  uniform vec3 uColor;
-  uniform float uIntensity;
-  uniform float uTime;
-  varying vec2 vUv;
-
-  float hash(vec2 p){ return fract(sin(dot(p, vec2(41.3, 289.1))) * 43758.5453); }
-  float noise(vec2 p){
-    vec2 i = floor(p), f = fract(p);
-    f = f * f * (3.0 - 2.0 * f);
-    return mix(mix(hash(i), hash(i + vec2(1,0)), f.x),
-               mix(hash(i + vec2(0,1)), hash(i + vec2(1,1)), f.x), f.y);
-  }
-
-  void main() {
-    // vUv.y: 1 at apex (source) → 0 at base
-    float along = pow(vUv.y, 1.7);                       // bright at source, dissolving
-    float edge = sin(vUv.x * 3.14159);                   // soft silhouette edges
-    edge = pow(edge, 2.0);
-    float drift = 0.82 + 0.18 * noise(vec2(vUv.x * 5.0 + uTime * 0.02, vUv.y * 3.0 - uTime * 0.03));
-    float a = along * edge * drift * uIntensity;
-    gl_FragColor = vec4(uColor * a, a);
-  }
-`;
-
-export function makeRay({ topRadius = 0.4, bottomRadius = 3.2, height = 16, color = 0xfff0d8, intensity = 0.2 }) {
-  const geo = new THREE.CylinderGeometry(topRadius, bottomRadius, height, 24, 1, true);
-  const mat = new THREE.ShaderMaterial({
-    vertexShader: RAY_VERT,
-    fragmentShader: RAY_FRAG,
-    uniforms: {
-      uColor: { value: new THREE.Color(color) },
-      uIntensity: { value: intensity },
-      uTime: { value: 0 },
-    },
-    transparent: true,
-    depthWrite: false,
-    side: THREE.DoubleSide,
-    blending: THREE.AdditiveBlending,
-  });
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.renderOrder = 5;
-  return mesh;
-}
 
 // ── post pass ──────────────────────────────────────────────────
 // scene → HDR target → grade: ACES tone, a gentle warm/cool split,
@@ -235,7 +92,7 @@ export class PostPass {
         uGrain: { value: 0.016 },
         uVignette: { value: 0.30 },
         uBlack: { value: 1 },
-        uExposure: { value: 1.7 },
+        uExposure: { value: 1.45 },
       },
       depthTest: false,
       depthWrite: false,

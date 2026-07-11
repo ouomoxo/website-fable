@@ -24,7 +24,7 @@ const QUALITY = {
   texSize: isTouch ? 384 : 512,
   shadows: true,
   assetTier: isTouch ? 'lo' : 'hi',
-  dustScale: isTouch ? 0.6 : 1,
+  detail: isTouch ? 0.7 : 1,
 };
 
 // ── state ──────────────────────────────────────────────────────
@@ -97,7 +97,7 @@ async function runLoader() {
 
 function finishLoading() {
   // one warm-up render so entry doesn't stutter
-  world.update(0, 0, 0.016);
+  world.update(0);
   rig.update(0, 0, 0, 0, 0);
   post.render(world.scene, rig.camera, 0);
   const enterBox = $('#loader-enter');
@@ -214,33 +214,9 @@ function updateDOM(p) {
     if (p >= c.a) activeIdx = i;
   }
   // sections outnumber movements: map each chapter to its movement
-  const MOVEMENT_OF = [0, 0, 1, 1, 2, 3, 4];
+  const MOVEMENT_OF = [0, 1, 1, 2, 3, 4];
   navLinks.forEach((a, i) => a.classList.toggle('active', i === (MOVEMENT_OF[activeIdx] ?? 0)));
   document.body.classList.toggle('past-hero', p > 0.06);
-}
-
-// ── attention: light swells faintly toward your gaze ───────────
-
-const raycaster = new THREE.Raycaster();
-const pointerNDC = new THREE.Vector2();
-function updateAttention(dt) {
-  for (const v of world.veiled) {
-    let target = 0;
-    if (!isTouch) {
-      pointerNDC.set(state.pointer.sx, -state.pointer.sy);
-      raycaster.setFromCamera(pointerNDC, rig.camera);
-      const toFig = v.pos.clone().sub(rig.camera.position);
-      const dist = toFig.length();
-      if (dist < 40) {
-        const cos = raycaster.ray.direction.dot(toFig.normalize());
-        target = smoothstep(0.972, 0.998, cos);
-      }
-    } else {
-      const d = v.pos.distanceTo(rig.camera.position);
-      target = smoothstep(16, 9, d);
-    }
-    v.boost = lerp(v.boost, target, Math.min(1, dt * 3));
-  }
 }
 
 // ── frame loop ─────────────────────────────────────────────────
@@ -275,25 +251,20 @@ function loop() {
   state.pointer.sy = lerp(state.pointer.sy, state.pointer.y, pk);
 
   const p = state.progress;
-  world.update(p, state.time, dt);
+  world.update(p);
 
-  // near the agreement, free deviation quietly fades: the eye is
-  // guided into the privileged point without being seized
-  const align = world.alignment ?? 0;
-  const calm = 1 - 0.92 * align;
-  const swayAmp = (state.still ? 0 : (isTouch ? 0.7 : 0.4)) * calm;
-  const px = (state.still ? 0 : state.pointer.sx) * calm;
-  const py = (state.still ? 0 : state.pointer.sy) * calm;
+  const swayAmp = state.still ? 0 : (isTouch ? 0.5 : 0.35);
+  const px = state.still ? 0 : state.pointer.sx;
+  const py = state.still ? 0 : state.pointer.sy;
 
   rig.update(p, px, py, state.time, swayAmp);
-  updateAttention(dt);
   updateDOM(p);
 
   // entrance fade
   fadeBlack.value = lerp(fadeBlack.value, fadeBlack.target, 1 - Math.exp(-dt * 1.4));
   post.material.uniforms.uBlack.value = fadeBlack.value;
 
-  sound.update(clamp(p / 0.9, 0, 1), dt, align);
+  sound.update(clamp(p / 0.9, 0, 1), dt, smoothstep(0.80, 0.92, p));
 
   post.render(world.scene, rig.camera, state.time);
 

@@ -1,22 +1,29 @@
 # Attribution
 
-## Sculpture scans
+**AFTER EMELYN** — an original interactive digital memorial inspired by
+William Wetmore Story's *Angel of Grief* (Non-Catholic Cemetery, Rome,
+1894). This project's monument is an original procedural work referencing
+the posture and emotional logic of the historical sculpture; it is not a
+scan or reconstruction of it. See `docs/research.md` and
+`docs/source-ledger.md` for the factual record and claim-by-claim
+sourcing.
 
-- **Lucy** — Stanford Computer Graphics Laboratory, the Stanford 3D Scanning
-  Repository (https://graphics.stanford.edu/data/3Dscanrep/). Used with
-  acknowledgment per the repository's terms. The mesh is decimated
-  (via the mirrors in `alecjacobson/common-3d-test-models`), converted to
-  meshopt-compressed GLB, and sliced at runtime into separate anatomical
-  fragments — the complete figure is never shown as one object.
-- **Igea** — Cyberware sample head scan, long redistributed for graphics
-  research; obtained via `alecjacobson/common-3d-test-models`.
+## Code
 
-## Everything else
+- [three.js](https://threejs.org) r160 — MIT. Vendored: core module,
+  GLTFLoader, BufferGeometryUtils, meshopt decoder.
+- All scene, carving, material, camera and audio code — this project.
 
-- Architecture (columns, piers, walls, stairs, plinths), stone and pigment
-  materials, the carved wing, light shafts, dust, and sound are computed —
-  no downloaded textures, photographs, or audio recordings.
-- Typefaces: Cormorant Garamond and Inter, self-hosted under the SIL Open
-  Font License.
-- Built on three.js (MIT), with GLTFLoader and the meshopt decoder from the
-  three.js examples (MIT), vendored at r160.
+## Assets
+
+- Hand mesh: from the xeogl example model set — MIT. Converted OBJ→GLB
+  with this project's own pipeline (Loop subdivision, weld, meshopt).
+- Fonts: Cormorant Garamond & Inter — SIL Open Font License 1.1.
+- All textures computed at runtime (canvas fbm noise). No photographs,
+  no downloaded textures.
+- Poster image rendered from this project's own scene.
+
+## Sound
+
+Optional, opt-in ambience is synthesized in WebAudio at runtime; no
+recordings are used.

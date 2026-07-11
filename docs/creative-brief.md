@@ -1,34 +1,49 @@
-# ANAMNESIS — creative brief
+# AFTER EMELYN — creative brief
 
-**Proposition.** A monument that exists only from one point of view.
-Memory does not preserve a complete past; it reconstructs a temporary
-image from fragments.
+**Logline.** He could not preserve a life. He gave the loss a form.
 
-**One-sentence description for a juror.** A fragmented Greek monument
-that becomes complete only from the viewer's exact perspective.
+**Premise.** An interactive digital memorial inspired by William Wetmore
+Story's *Angel of Grief* (Rome, 1894): a sculptor loses his wife and,
+instead of writing an elegy, carves grief itself — a winged figure
+collapsed over an altar, face hidden, one bare hand hanging.
 
-**Audience.** Visitors to cultural/experimental web showcases; award
-jurors; anyone with four quiet minutes.
+**The single cinematic idea.** For the first half of the film the visitor
+believes they are moving through monumental stone architecture — a fluted
+wall, a colonnade, a ravine of stone. Details begin to contradict the
+architecture: the fluting ends in scalloped tips (feathers), a ledge
+holds a human hand. At the climax the camera performs one long
+withdrawal — the only long move in the piece — and the "architecture"
+resolves into a single unmoving angel collapsed over an altar. Scale was
+never architectural; it was proximity to grief.
 
-**Artistic argument.** Five movements: the accepted white image of
-antiquity (I), the discovery that its parts are separated (II), the
-lesson that perspective is the operative system (III), the one point
-where the fragments agree into a body — and where traces of lost
-polychromy return (IV), and the loss of the image by a few steps (V).
-White was never the beginning; it was what remained.
+**The absolute rule.** The angel never moves. No breathing, no pointer
+reaction, no facial animation, no tears. Only three things move: the
+visitor (camera), the light (one day, slowly turning late), and the
+copy. Stillness is the emotional engine.
 
-**Signature interaction.** Perspective reconstruction. Scroll moves an
-authored camera; an alignment basin eases the eye into the privileged
-point; pointer deviation fades to zero as alignment rises, so every
-visitor succeeds without precision effort. Leaving the point destroys
-the figure through perspective alone.
+**The hidden face.** The face is never shown — only the knot of gathered
+hair, the buried posture, the bare hand. Grief is rendered by what
+cannot be looked at.
 
-**Visual rules.** One motivated light per movement; midtones preserved;
-no pure white, no crushed black; pigment appears only as evidence
-(Egyptian blue, red ochre, carbon black, mineral green, worn gilding);
-architecture participates in the figure; stillness before movement.
+**Five movements.**
+- **0 — Black before form.** Loader: place-setting line, black.
+- **I — The interior of grief.** Stone that reads as architecture
+  (S01 fluted wall, S02 the colonnade betraying itself as feathers).
+- **II — Traces of a body.** The ravine of falling cloth; the hanging
+  hand (S03, S04). A body is implied, never announced.
+- **III — The labor.** The hidden face beat and the carved feather ends
+  against sawn stone (S05, S06). She did not return; the work continued.
+- **IV — The withdrawal.** The one long pull-back (S07): the whole
+  monument revealed. No text during the move; one line after it holds.
+- **V — What remains.** Distance, late light, the epilogue's facts
+  (S08–S10). Grief is not solved. The form remains after the man is gone.
 
-**Forbidden.** Glowing portals, starfields, ambient dust decoration,
-orbit controls, product-viewer rotation, glitch, heavy grain, gold
-ornament, laurel motifs, temple reconstruction, epic music, tutorials,
-alignment scores, reticles.
+**Tone guards.** No gothic clichés (no roses, ravens, candles, tears,
+glowing eyes). No mythological typography — the story is 19th-century
+and human. Copy is restrained; several shots carry no text at all. The
+ending must not console; it must endure.
+
+**Materials.** One warm-black place, one pale carved stone, one key
+light with a slow day arc, computed marble/limestone surfaces, and a
+single scanned element (the hand) so the one bare human thing has human
+detail.
