@@ -1,0 +1,3 @@
+tools/.figure-*.json
+tools/.figure-*.glb
+node_modules/

@@ -25,6 +25,7 @@ const QUALITY = {
   shadows: true,
   assetTier: isTouch ? 'lo' : 'hi',
   detail: isTouch ? 0.7 : 1,
+  shadowSize: isTouch ? 2048 : 4096,
 };
 
 // ── state ──────────────────────────────────────────────────────
@@ -34,7 +35,6 @@ const state = {
   target: 0,
   entered: false,
   still: prefersStill,
-  pointer: { x: 0, y: 0, sx: 0, sy: 0 },
   time: 0,
   fpsSamples: [],
   degraded: false,
@@ -98,7 +98,7 @@ async function runLoader() {
 function finishLoading() {
   // one warm-up render so entry doesn't stutter
   world.update(0);
-  rig.update(0, 0, 0, 0, 0);
+  rig.update(0);
   post.render(world.scene, rig.camera, 0);
   const enterBox = $('#loader-enter');
   enterBox.hidden = false;
@@ -149,14 +149,6 @@ $('#wordmark').addEventListener('click', (e) => {
   smoothScrollToProgress(0);
 });
 $('#return-top').addEventListener('click', () => smoothScrollToProgress(0));
-
-// ── pointer ────────────────────────────────────────────────────
-
-addEventListener('pointermove', (e) => {
-  if (e.pointerType === 'touch') return;
-  state.pointer.x = (e.clientX / innerWidth) * 2 - 1;
-  state.pointer.y = (e.clientY / innerHeight) * 2 - 1;
-}, { passive: true });
 
 // ── sound toggle ───────────────────────────────────────────────
 
@@ -245,19 +237,9 @@ function loop() {
   state.progress = lerp(state.progress, state.target, damp);
   if (Math.abs(state.progress - state.target) < 0.0004) state.progress = state.target;
 
-  // smoothed pointer
-  const pk = 1 - Math.exp(-dt * 4);
-  state.pointer.sx = lerp(state.pointer.sx, state.pointer.x, pk);
-  state.pointer.sy = lerp(state.pointer.sy, state.pointer.y, pk);
-
   const p = state.progress;
   world.update(p);
-
-  const swayAmp = state.still ? 0 : (isTouch ? 0.5 : 0.35);
-  const px = state.still ? 0 : state.pointer.sx;
-  const py = state.still ? 0 : state.pointer.sy;
-
-  rig.update(p, px, py, state.time, swayAmp);
+  rig.update(p);
   updateDOM(p);
 
   // entrance fade

@@ -1,10 +1,9 @@
 // ═══════════════════════════════════════════════════════════════
 // AFTER EMELYN — assets
-// One scanned element: the bare forearm and hand that hang over
-// the altar's edge (hand mesh from the xeogl example set, MIT,
-// Loop-subdivided offline to carving density). Everything else in
-// the monument is carved procedurally at load.
-// Normalized here to unit height with baked stone tint.
+// The monument is carved and ambient-occlusion-baked OFFLINE
+// (tools/bake-monument.mjs) and shipped as meshopt GLB — the
+// browser only lights it. The bare hand is the one scanned
+// element (xeogl example set, MIT, resculpted).
 // ═══════════════════════════════════════════════════════════════
 
 import * as THREE from 'three';
@@ -12,26 +11,33 @@ import { GLTFLoader } from './lib/GLTFLoader.js';
 import { MeshoptDecoder } from './lib/meshopt_decoder.module.js';
 import { fbmFactory } from './materials.js';
 
-const MODELS = {
-  hand: { rx: 0, ry: 0, seed: 23 },
-};
+const smooth = (t) => { t = Math.min(1, Math.max(0, t)); return t * t * (3 - 2 * t); };
 
 export function loadSculptures(tier, onProgress) {
   const loader = new GLTFLoader();
   loader.setMeshoptDecoder(MeshoptDecoder);
   const suffix = tier === 'lo' ? '-lo' : '';
-  const names = Object.keys(MODELS);
-  const done = new Array(names.length).fill(0);
-  const report = () => onProgress?.(done.reduce((a, b) => a + b, 0) / names.length);
+  const files = [
+    { key: 'monument', url: `assets/models/monument${suffix}.glb` },
+    { key: 'hand', url: `assets/models/hand${suffix}.glb` },
+  ];
+  const done = new Array(files.length).fill(0);
+  const report = () => onProgress?.(done.reduce((a, b) => a + b, 0) / files.length);
 
-  return Promise.all(names.map((name, i) => new Promise((resolve, reject) => {
+  return Promise.all(files.map((f, i) => new Promise((resolve, reject) => {
     loader.load(
-      `assets/models/${name}${suffix}.glb`,
+      f.url,
       (gltf) => {
-        let mesh = null;
-        gltf.scene.traverse((o) => { if (o.isMesh && !mesh) mesh = o; });
         done[i] = 1; report();
-        resolve([name, prepare(mesh.geometry, MODELS[name])]);
+        if (f.key === 'hand') {
+          let mesh = null;
+          gltf.scene.traverse((o) => { if (o.isMesh && !mesh) mesh = o; });
+          resolve([f.key, prepareHand(mesh.geometry)]);
+        } else {
+          const parts = {};
+          gltf.scene.traverse((o) => { if (o.isMesh) parts[o.name || o.parent?.name] = o.geometry; });
+          resolve([f.key, parts]);
+        }
       },
       (ev) => { if (ev.total) { done[i] = Math.min(0.96, ev.loaded / ev.total); report(); } },
       reject
@@ -39,10 +45,7 @@ export function loadSculptures(tier, onProgress) {
   }))).then(Object.fromEntries);
 }
 
-function prepare(geo, { rx, ry, seed }) {
-  geo.applyMatrix4(
-    new THREE.Matrix4().makeRotationY(ry).multiply(new THREE.Matrix4().makeRotationX(rx))
-  );
+function prepareHand(geo) {
   geo.computeBoundingBox();
   const bb = geo.boundingBox;
   const h = bb.max.y - bb.min.y;
@@ -50,13 +53,15 @@ function prepare(geo, { rx, ry, seed }) {
   geo.scale(1 / h, 1 / h, 1 / h);
 
   // quiet mineral variation, baked as vertex color
-  const fbm = fbmFactory(seed * 977 + 5, 4);
+  const fbm = fbmFactory(23 * 977 + 5, 4);
   const pos = geo.attributes.position;
   const colors = new Float32Array(pos.count * 3);
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
     const drift = (fbm(x * 3.1 + 7, y * 3.1 + z * 1.9) - 0.5) * 0.07;
-    const v = 1 + drift;
+    // baked-ambience match: the hand hangs in the hem's shade —
+    // darker toward the wrist, so it sits IN the cloth, not on it
+    const v = (0.86 - 0.10 * smooth(y)) * (1 + drift);
     colors[i * 3] = v;
     colors[i * 3 + 1] = v * 0.996;
     colors[i * 3 + 2] = v * 0.988;

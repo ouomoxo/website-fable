@@ -295,7 +295,14 @@ export function createMaterials(renderer, quality) {
     envMapIntensity: 0.10,
   });
 
-  return { marble, scan, scanPlain, feather, wall, floor, stone, env };
+  // baked-AO variants for the offline monument meshes — the AO
+  // and mineral drift arrive in COLOR_0
+  const marbleV = marble.clone();
+  marbleV.vertexColors = true;
+  const stoneV = stone.clone();
+  stoneV.vertexColors = true;
+
+  return { marble, marbleV, scan, scanPlain, feather, wall, floor, stone, stoneV, env };
 }
 
 // dim architectural environment — one pale overhead opening,

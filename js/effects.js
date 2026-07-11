@@ -52,7 +52,7 @@ const POST_FRAG = /* glsl */`
     col = mix(col * vec3(0.972, 0.988, 1.025), col * vec3(1.03, 1.0, 0.955), smoothstep(0.05, 0.55, lum));
 
     // shadows never crush to zero — the dark stays material
-    col = col * 0.985 + vec3(0.0075, 0.0068, 0.006);
+    col = col * 0.982 + vec3(0.0105, 0.0095, 0.0085);
 
     // vignette
     float vig = 1.0 - uVignette * smoothstep(0.14, 0.65, r2);
