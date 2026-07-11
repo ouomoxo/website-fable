@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// AFTER EMELYN — effects
+// KLEOS — effects
 // One finishing pass: tone, a gentle split grade, near-invisible
 // grain, quiet vignette, entrance black.
 // ═══════════════════════════════════════════════════════════════

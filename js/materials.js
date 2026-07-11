@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════
-// ANAMNESIS — materials
+// KLEOS — materials
 // Aged ivory marble, limestone walls, dark honed floors.
 // Every surface is computed; nothing is pure white, nothing is
 // pure black.

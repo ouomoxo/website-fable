@@ -1,12 +1,12 @@
 // ═══════════════════════════════════════════════════════════════
-// AFTER EMELYN — world
-// One place, one monument, one unmoving angel. The visitor moves;
+// KLEOS — world
+// one place, one monument, one unmoving Victory. The visitor moves;
 // the light moves; the sculpture does not. Coordinates are metres;
 // the monument's rough base rests on the ground at y = 0.
 // ═══════════════════════════════════════════════════════════════
 
 import * as THREE from 'three';
-import { createMaterials } from './materials.js';
+import { createMaterials, fbmFactory } from './materials.js';
 import { scaleUV } from './builders.js';
 import { loadSculptures } from './assets.js';
 
@@ -74,46 +74,45 @@ export class World {
   // ── the monument ─────────────────────────────────────────────
 
   _buildMonument() {
-    const { marble, marbleV, scan, scanPlain, feather, stoneV } = this.materials;
+    const { scan, stone } = this.materials;
     const g = this.monument = new THREE.Group();
+    // the figure's face and torch are carved toward -Z in the source;
+    // turn her to face the visitor at +Z
+    g.rotation.y = Math.PI;
     this.scene.add(g);
 
-    // the monument arrives fully carved and AO-baked (offline
-    // pipeline: tools/bake-monument.mjs). Assign stone by name.
+    // the monument arrives from the offline Blender pipeline: the
+    // standing winged Victory (Stanford "Lucy") on a classical
+    // pedestal, base on the ground at y = 0.
     const parts = this.models.monument;
-    const MAT = {
-      drape: scan, hair: scan,
-      wingFall: feather, wingLie: feather,
-      wingFallTips: feather, wingLieTips: feather,
-      pedestal: marbleV, slab: marbleV,
-      base: stoneV,
-    };
-    for (const [name, geo] of Object.entries(parts)) {
-      const m = new THREE.Mesh(geo, MAT[name] || scan);
-      m.name = name;
-      // separated feather tips carry baked shading only — dynamic
-      // shadow maps would zebra the slots between them
-      const isTips = name.endsWith('Tips');
-      m.castShadow = !isTips;
-      m.receiveShadow = !isTips;
-      g.add(m);
-    }
+    const figureGeo = parts.figure;
+    const pedestalGeo = parts.pedestal;
 
-    // the one bare thing: the hand, released below the hem's edge —
-    // the wrist disappears up into the hanging cloth
-    const hand = new THREE.Mesh(this.models.hand, scanPlain);
-    hand.scale.setScalar(0.60);
-    hand.position.set(0.66, 1.66, 0.98);
-    hand.rotation.set(-0.22, 0.55, 0.10);
-    hand.name = 'hand';
-    hand.castShadow = true;
-    hand.receiveShadow = true;
-    g.add(hand);
+    // the figure carries no UVs — its tonal life is baked as vertex
+    // colour: quiet mineral drift, cooler and heavier down low so the
+    // stone reads carved, never poured
+    veinFigure(figureGeo);
+    const figMat = scan.clone();
+    figMat.color.setHex(0xbcb3a4);
+    const figure = new THREE.Mesh(figureGeo, figMat);
+    figure.name = 'figure';
+    figure.castShadow = true;
+    figure.receiveShadow = true;
+    g.add(figure);
 
-    // soft contact ambience under the whole monument — a computed
-    // decal so the mass sits in the ground, not on it
+    // the pedestal: paler quarry stone, plainly cut
+    const pedMat = stone.clone();
+    pedMat.color.setHex(0x8f887b);
+    const pedestal = new THREE.Mesh(pedestalGeo, pedMat);
+    pedestal.name = 'pedestal';
+    pedestal.castShadow = true;
+    pedestal.receiveShadow = true;
+    g.add(pedestal);
+
+    // soft contact ambience under the pedestal — a computed decal so
+    // the mass sits in the ground, not on it
     const decal = new THREE.Mesh(
-      new THREE.PlaneGeometry(7.4, 5.2),
+      new THREE.PlaneGeometry(3.0, 3.0),
       new THREE.MeshBasicMaterial({
         map: makeContactShadowTexture(),
         transparent: true,
@@ -122,9 +121,9 @@ export class World {
       })
     );
     decal.rotation.x = -Math.PI / 2;
-    decal.position.set(0, 0.012, 0.1);
+    decal.position.set(0, 0.012, 0);
     decal.renderOrder = 1;
-    g.add(decal);
+    this.scene.add(decal);
   }
 
   // ── light: one day, slowly turning late ──────────────────────
@@ -185,6 +184,33 @@ export class World {
     this.rim.intensity = lerp(0.5, 0.72, late);
     this.scene.fog.density = lerp(0.012, 0.017, late);
   }
+}
+
+// bake quiet marble variation into the reposed figure as vertex
+// colour (COLOR_0) — the scan carries no UVs, so its tonal life has
+// to live in the vertices: mineral drift, veined, cooler and a touch
+// darker toward the base where drapery pools in its own shade
+function veinFigure(geo) {
+  geo.computeBoundingBox();
+  const bb = geo.boundingBox;
+  const y0 = bb.min.y, y1 = bb.max.y;
+  const fbm = fbmFactory(911, 5);
+  const fbmV = fbmFactory(37, 4);
+  const pos = geo.attributes.position;
+  const colors = new Float32Array(pos.count * 3);
+  const sm = (t) => { t = Math.min(1, Math.max(0, t)); return t * t * (3 - 2 * t); };
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+    const h = (y - y0) / (y1 - y0);
+    // fine mineral speckle + a slower vein running through the block
+    const drift = (fbm(x * 2.6 + 11, z * 2.6 + y * 1.4) - 0.5) * 0.10;
+    const vein = (fbmV(x * 0.9 + y * 0.7, z * 0.9) - 0.5) * 0.06;
+    const base = (0.80 + 0.14 * sm(h)) * (1 + drift + vein);
+    colors[i * 3] = base;
+    colors[i * 3 + 1] = base * 0.992;
+    colors[i * 3 + 2] = base * 0.978;
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 }
 
 // soft multiply-decal for ground contact — precomputed, static
