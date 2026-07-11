@@ -51,8 +51,9 @@ export class World {
       color: 0x8f887b, roughness: 0.86, metalness: 0.0,
       envMap: env, envMapIntensity: 0.10,
     });
-    // the flame: emissive, unlit-bright
-    this.mFlame = new THREE.MeshBasicMaterial({ color: 0xffb257, fog: false });
+    // the flame: emissive, HDR-bright so the bloom pass catches it
+    this.mFlame = new THREE.MeshBasicMaterial({ fog: false });
+    this.mFlame.color.setRGB(2.7, 1.7, 0.78);
   }
 
   _box(w, h, d, x, y, z, mat, parent, { ry = 0, cast = false } = {}) {
@@ -186,10 +187,12 @@ export class World {
     core.renderOrder = 2;
     this.scene.add(core);
 
-    const glow = this.flameGlow = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: makeGlowTexture(), color: 0xffa64a,
+    const glowMat = new THREE.SpriteMaterial({
+      map: makeGlowTexture(),
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
-    }));
+    });
+    glowMat.color.setRGB(1.9, 1.15, 0.5);
+    const glow = this.flameGlow = new THREE.Sprite(glowMat);
     glow.position.copy(core.position);
     glow.scale.set(1.15, 1.15, 1);
     glow.renderOrder = 2;
