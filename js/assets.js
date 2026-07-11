@@ -15,6 +15,7 @@ export function loadSculptures(tier, onProgress) {
   const suffix = tier === 'lo' ? '-lo' : '';
   const files = [
     { key: 'monument', url: `assets/models/monument${suffix}.glb` },
+    { key: 'set', url: `assets/models/set.glb` },
   ];
   const done = new Array(files.length).fill(0);
   const report = () => onProgress?.(done.reduce((a, b) => a + b, 0) / files.length);

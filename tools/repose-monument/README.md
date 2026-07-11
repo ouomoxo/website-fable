@@ -6,9 +6,13 @@ The hero of the site is a real museum-grade scan, not procedural geometry:
 stood upright, decimated for the web, and set on a computed classical
 pedestal. The browser (`js/world.js`) only lights it and grades the frame.
 
-The shipped asset is `assets/models/monument.glb` (hi) and `monument-lo.glb`
-(mobile), each a meshopt-compressed GLB with two named meshes: `figure` and
-`pedestal`.
+The shipped assets are:
+- `assets/models/monument.glb` / `monument-lo.glb` — the winged Victory on
+  her pedestal (meshes `figure`, `pedestal`).
+- `assets/models/set.glb` — the temple set built procedurally in Blender:
+  a fluted Doric `column`, a toppled `capital_fallen`, a broken `drum`, and
+  an `altar`. `js/world.js` instances the column into a colonnade and
+  scatters the fragments.
 
 ## Rebuild
 
@@ -27,6 +31,10 @@ python build_monument.py lucy_plain.glb 0.30 monument_raw_lo.glb
 # 3. meshopt-compress into the repo
 node compress.mjs monument_raw.glb    ../../assets/models/monument.glb
 node compress.mjs monument_raw_lo.glb ../../assets/models/monument-lo.glb
+
+# 4. the temple set (columns, fragments, altar) — one export, no LODs
+python build_set.py                       # writes /tmp/set_raw.glb
+node compress.mjs /tmp/set_raw.glb ../../assets/models/set.glb
 ```
 
 ## Notes

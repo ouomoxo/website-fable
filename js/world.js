@@ -7,7 +7,6 @@
 
 import * as THREE from 'three';
 import { createMaterials, fbmFactory } from './materials.js';
-import { scaleUV } from './builders.js';
 import { loadSculptures } from './assets.js';
 
 const V3 = THREE.Vector3;
@@ -19,8 +18,9 @@ export class World {
     this.renderer = renderer;
     this.quality = quality;
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x0a0908);
-    this.scene.fog = new THREE.FogExp2(0x0b0a08, 0.012);
+    // a cool near-black — marble against night, not mud
+    this.scene.background = new THREE.Color(0x070809);
+    this.scene.fog = new THREE.FogExp2(0x090b0e, 0.030);
     this.time = 0;
     this.buildSteps = [];
     this._plan();
@@ -30,17 +30,33 @@ export class World {
     this.buildSteps = [
       (onProgress) => loadSculptures(this.quality.assetTier, onProgress)
         .then((models) => { this.models = models; }),
-      () => { this.materials = createMaterials(this.renderer, this.quality); },
-      () => this._buildGround(),
+      () => { this.materials = createMaterials(this.renderer, this.quality); this._setMaterials(); },
+      () => this._buildTemple(),
+      () => this._buildColonnade(),
       () => this._buildMonument(),
       () => this._buildLight(),
     ];
   }
 
-  _box(w, h, d, x, y, z, mat, parent, { ry = 0, cast = false, uv = null } = {}) {
-    let geo = new THREE.BoxGeometry(w, h, d);
-    if (uv) geo = scaleUV(geo, uv[0], uv[1]);
-    const m = new THREE.Mesh(geo, mat);
+  _setMaterials() {
+    const env = this.materials.env;
+    // cool temple marble for the architecture — colder and cleaner
+    // than the figure's warmer, hand-scanned stone
+    this.mMarble = new THREE.MeshStandardMaterial({
+      color: 0xc9c4bb, roughness: 0.58, metalness: 0.0,
+      envMap: env, envMapIntensity: 0.22,
+    });
+    // weathered, darker stone for the broken fragments on the ground
+    this.mFrag = new THREE.MeshStandardMaterial({
+      color: 0x8f887b, roughness: 0.86, metalness: 0.0,
+      envMap: env, envMapIntensity: 0.10,
+    });
+    // the flame: emissive, unlit-bright
+    this.mFlame = new THREE.MeshBasicMaterial({ color: 0xffb257, fog: false });
+  }
+
+  _box(w, h, d, x, y, z, mat, parent, { ry = 0, cast = false } = {}) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
     m.position.set(x, y, z);
     m.rotation.y = ry;
     m.castShadow = cast;
@@ -49,140 +65,239 @@ export class World {
     return m;
   }
 
-  // ── the place: ground and a masonry recess behind ────────────
+  // ── the place: a sanctuary floor, steps at the approach ───────
 
-  _buildGround() {
-    const { floor, wall } = this.materials;
-    const g = new THREE.Group();
+  _buildTemple() {
+    const { floor } = this.materials;
+    floor.color.setHex(0x6d675c);
+    const g = this.temple = new THREE.Group();
     this.scene.add(g);
 
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(90, 90), floor);
+    // the sanctuary floor the monument and columns stand on
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), floor);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     g.add(ground);
 
-    // the niche: a heavy wall behind the monument, side returns,
-    // everything dissolving upward into dark
-    this._box(30, 15, 1.6, 0, 7.5, -4.4, wall, g, { uv: [5, 2.8] });
-    this._box(1.6, 15, 9, -11.5, 7.5, -0.2, wall, g, { uv: [1.6, 2.8] });
-    this._box(1.6, 15, 9, 11.5, 7.5, -0.2, wall, g, { uv: [1.6, 2.8] });
-    // a low bench of stone either side — scale, not decoration
-    this._box(3.6, 0.55, 1.1, -6.4, 0.275, -3.4, wall, g, { uv: [1.4, 0.3] });
-    this._box(3.6, 0.55, 1.1, 6.2, 0.275, -3.3, wall, g, { uv: [1.4, 0.3] });
+    // three steps descending at the approach (+Z), a stylobate edge
+    const stepMat = this.mMarble;
+    for (let i = 0; i < 3; i++) {
+      const z = 5.8 + i * 0.72;
+      this._box(15.5 - i * 0.4, 0.24, 0.72, 0, -0.12 - i * 0.24, z, stepMat, g);
+    }
+    // a lower forecourt beyond the steps, so the steps read as a drop
+    const court = new THREE.Mesh(new THREE.PlaneGeometry(120, 60), floor);
+    court.rotation.x = -Math.PI / 2;
+    court.position.set(0, -0.72, 38);
+    court.receiveShadow = true;
+    g.add(court);
   }
 
-  // ── the monument ─────────────────────────────────────────────
+  // ── the colonnade: two rows receding into fog + architrave ────
+
+  _buildColonnade() {
+    const set = this.models.set;
+    const colGeo = set.column;
+    const ROWS = [-3.75, 3.75];
+    const ZS = [3.4, -0.9, -5.2, -9.5, -13.8];
+    const inst = new THREE.InstancedMesh(colGeo, this.mMarble, ROWS.length * ZS.length);
+    inst.castShadow = true; inst.receiveShadow = true;
+    const m = new THREE.Matrix4(); const q = new THREE.Quaternion();
+    const s = new THREE.Vector3(1, 1, 1); const p = new THREE.Vector3();
+    let n = 0;
+    for (const x of ROWS) {
+      for (const z of ZS) {
+        // tiny per-column yaw so the fluting never twins exactly
+        q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), (n % 3 - 1) * 0.04);
+        p.set(x, 0, z);
+        m.compose(p, q, s);
+        inst.setMatrixAt(n++, m);
+      }
+    }
+    inst.instanceMatrix.needsUpdate = true;
+    this.scene.add(inst);
+
+    // architrave: a long beam capping each row, so the key rakes
+    // bars of shadow down the floor
+    const zA = (ZS[0] + ZS[ZS.length - 1]) / 2;
+    const dZ = Math.abs(ZS[0] - ZS[ZS.length - 1]) + 1.4;
+    for (const x of ROWS) {
+      this._box(1.0, 0.72, dZ, x, 5.16, zA, this.mMarble, this.scene, { cast: true });
+    }
+
+    // fallen fragments — the ruin, the time that has passed
+    const frag = (geo, x, z, rx, ry, rz, sc = 1) => {
+      const me = new THREE.Mesh(geo, this.mFrag);
+      me.position.set(x, 0, z); me.rotation.set(rx, ry, rz);
+      me.scale.setScalar(sc);
+      me.castShadow = true; me.receiveShadow = true;
+      this.scene.add(me);
+    };
+    frag(set.drum, -2.3, 3.1, Math.PI / 2, 0.4, 0, 1);        // rolled to rest
+    frag(set.drum, 3.0, -2.2, Math.PI / 2, -0.7, 0.1, 0.92);
+    frag(set.capital_fallen, 2.35, 3.7, 0, 0.6, 0, 0.95);     // toppled capital
+    frag(set.drum, -3.4, -6.6, Math.PI / 2, 1.2, 0, 0.85);
+  }
+
+  // ── the monument + the altar flame ───────────────────────────
 
   _buildMonument() {
-    const { scan, stone } = this.materials;
+    const { scan } = this.materials;
     const g = this.monument = new THREE.Group();
     // the figure's face and torch are carved toward -Z in the source;
     // turn her to face the visitor at +Z
     g.rotation.y = Math.PI;
     this.scene.add(g);
 
-    // the monument arrives from the offline Blender pipeline: the
-    // standing winged Victory (Stanford "Lucy") on a classical
-    // pedestal, base on the ground at y = 0.
     const parts = this.models.monument;
     const figureGeo = parts.figure;
     const pedestalGeo = parts.pedestal;
 
     // the figure carries no UVs — its tonal life is baked as vertex
-    // colour: quiet mineral drift, cooler and heavier down low so the
-    // stone reads carved, never poured
+    // colour: quiet mineral drift, cooler and heavier down low
     veinFigure(figureGeo);
     const figMat = scan.clone();
-    figMat.color.setHex(0xbcb3a4);
+    figMat.color.setHex(0xc3bbad);
     const figure = new THREE.Mesh(figureGeo, figMat);
     figure.name = 'figure';
-    figure.castShadow = true;
-    figure.receiveShadow = true;
+    figure.castShadow = true; figure.receiveShadow = true;
     g.add(figure);
 
-    // the pedestal: paler quarry stone, plainly cut
-    const pedMat = stone.clone();
-    pedMat.color.setHex(0x8f887b);
+    const pedMat = this.mMarble.clone();
+    pedMat.color.setHex(0xb7b1a6);
     const pedestal = new THREE.Mesh(pedestalGeo, pedMat);
     pedestal.name = 'pedestal';
-    pedestal.castShadow = true;
-    pedestal.receiveShadow = true;
+    pedestal.castShadow = true; pedestal.receiveShadow = true;
     g.add(pedestal);
 
-    // soft contact ambience under the pedestal — a computed decal so
-    // the mass sits in the ground, not on it
-    const decal = new THREE.Mesh(
-      new THREE.PlaneGeometry(3.0, 3.0),
-      new THREE.MeshBasicMaterial({
-        map: makeContactShadowTexture(),
-        transparent: true,
-        depthWrite: false,
-        blending: THREE.MultiplyBlending,
-      })
+    // the altar before her, and its small unquenched flame — the
+    // fire the poem keeps burning
+    const altar = new THREE.Mesh(this.models.set.altar, this.mMarble);
+    altar.position.set(-1.75, 0, 2.5);
+    altar.castShadow = true; altar.receiveShadow = true;
+    this.scene.add(altar);
+
+    // a small bright core plus a soft additive glow — reads as fire,
+    // not geometry
+    const core = this.flame = new THREE.Mesh(
+      new THREE.SphereGeometry(0.07, 10, 8), this.mFlame
     );
-    decal.rotation.x = -Math.PI / 2;
-    decal.position.set(0, 0.012, 0);
-    decal.renderOrder = 1;
-    this.scene.add(decal);
+    core.position.set(-1.75, 1.05, 2.5);
+    core.renderOrder = 2;
+    this.scene.add(core);
+
+    const glow = this.flameGlow = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: makeGlowTexture(), color: 0xffa64a,
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
+    }));
+    glow.position.copy(core.position);
+    glow.scale.set(1.15, 1.15, 1);
+    glow.renderOrder = 2;
+    this.scene.add(glow);
   }
 
-  // ── light: one day, slowly turning late ──────────────────────
+  // ── light: a cold hall, one warm shaft, one flame ────────────
 
   _buildLight() {
-    // key: soft daylight from high front-left, out of frame
-    const key = new THREE.DirectionalLight(0xf2ebdc, 2.2);
-    key.position.set(-6.5, 10, 10.5);
-    key.target.position.set(0, 1.6, 0);
+    // key: a single hard shaft from high front-left — the god-ray
+    const key = new THREE.DirectionalLight(0xfff1d8, 3.0);
+    key.position.set(-5.5, 15, 8.5);
+    key.target.position.set(0, 2.6, 0);
     key.castShadow = this.quality.shadows;
     if (key.castShadow) {
-      const ss = this.quality.shadowSize || 2048;
-      key.shadow.mapSize.set(ss, ss);
-      key.shadow.camera.left = -7; key.shadow.camera.right = 7;
-      key.shadow.camera.top = 8; key.shadow.camera.bottom = -3;
-      key.shadow.camera.near = 2; key.shadow.camera.far = 40;
-      key.shadow.bias = -0.0012;
-      key.shadow.normalBias = 0.05;
+      const sz = this.quality.shadowSize || 2048;
+      key.shadow.mapSize.set(sz, sz);
+      key.shadow.camera.left = -10; key.shadow.camera.right = 10;
+      key.shadow.camera.top = 10; key.shadow.camera.bottom = -3;
+      key.shadow.camera.near = 2; key.shadow.camera.far = 46;
+      key.shadow.bias = -0.0011;
+      key.shadow.normalBias = 0.045;
     }
     this.scene.add(key, key.target);
     this.key = key;
 
-    // sky and ground return
-    this.hemi = new THREE.HemisphereLight(0x504f4b, 0x1a1613, 0.62);
+    // cool sky / warm ground: marble shadows drift blue, so the warm
+    // key reads as sun and the hall stays cold
+    this.hemi = new THREE.HemisphereLight(0x3a4a63, 0x120d0a, 0.55);
     this.scene.add(this.hemi);
 
-    // warm bounce off the pavement in front — directional so it
-    // never draws a pool of light on the ground
-    this.bounce = new THREE.DirectionalLight(0xcdbfa4, 0.5);
-    this.bounce.position.set(2.5, 1.2, 9);
-    this.bounce.target.position.set(-0.5, 1.8, 0);
-    this.scene.add(this.bounce, this.bounce.target);
+    // cool fill from the front so faces never go black
+    this.fill = new THREE.DirectionalLight(0x8f9cb8, 0.34);
+    this.fill.position.set(3, 3.5, 10);
+    this.fill.target.position.set(0, 2.2, 0);
+    this.scene.add(this.fill, this.fill.target);
 
-    // faint cool separation from behind the niche edge — it also
-    // rakes the kneeling falls in the opening frames
-    const rim = new THREE.DirectionalLight(0x7d7a72, 0.75);
-    rim.position.set(6, 4, -7);
-    rim.target.position.set(-0.5, 2, 0);
+    // cool rim from behind, separating marble from the dark
+    const rim = new THREE.DirectionalLight(0xa8b8d6, 0.8);
+    rim.position.set(1.5, 6, -11);
+    rim.target.position.set(0, 2.6, 0);
     this.scene.add(rim, rim.target);
     this.rim = rim;
+
+    // the flame's warm pool
+    this.altarLight = new THREE.PointLight(0xffa552, 6.5, 7.5, 2.0);
+    this.altarLight.position.set(-1.75, 1.15, 2.5);
+    this.scene.add(this.altarLight);
+
+    // the visible shaft of light on the figure
+    this._buildShaft();
   }
 
-  // ── per-frame: the day turns; nothing else moves ─────────────
+  _buildShaft() {
+    const geo = new THREE.CylinderGeometry(0.30, 2.3, 13.5, 32, 1, true);
+    const mat = new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide, fog: false,
+      uniforms: { uColor: { value: new THREE.Color(0xffe9c4) }, uInt: { value: 0.10 } },
+      vertexShader: `
+        varying float vH; varying vec3 vN; varying vec3 vV;
+        void main() {
+          vH = uv.y;
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          vN = normalize(normalMatrix * normal);
+          vV = normalize(-mv.xyz);
+          gl_Position = projectionMatrix * mv;
+        }`,
+      fragmentShader: `
+        precision highp float;
+        uniform vec3 uColor; uniform float uInt;
+        varying float vH; varying vec3 vN; varying vec3 vV;
+        void main() {
+          float vertical = mix(0.04, 1.0, vH);        // bright at the source
+          float base = smoothstep(0.0, 0.30, vH);     // fade softly into the floor
+          float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), 2.4);
+          float a = uInt * vertical * base * fres;
+          gl_FragColor = vec4(uColor, a);
+        }`,
+    });
+    const shaft = this.shaft = new THREE.Mesh(geo, mat);
+    // aim it down the key direction onto the figure
+    shaft.position.set(-0.3, 6.9, 0.2);
+    shaft.rotation.set(0.10, 0, 0.13);
+    shaft.renderOrder = 3;
+    this.scene.add(shaft);
+  }
+
+  // ── per-frame: the flame breathes; the day turns late ────────
 
   update(progress) {
     if (!this.key) return;
-    // movement V: the light lowers and cools; the posture endures
-    const late = ss(progress, 0.93, 0.995);
-    this.key.intensity = lerp(2.2, 1.35, late);
-    this.key.color.setRGB(
-      lerp(0.941, 0.83, late),
-      lerp(0.906, 0.80, late),
-      lerp(0.831, 0.79, late)
-    );
-    this.key.position.set(lerp(-6.5, -11, late), lerp(10, 5.5, late), lerp(10.5, 6.5, late));
-    this.hemi.intensity = lerp(0.62, 0.38, late);
-    this.bounce.intensity = lerp(0.5, 0.22, late);
-    this.rim.intensity = lerp(0.5, 0.72, late);
-    this.scene.fog.density = lerp(0.012, 0.017, late);
+    const t = this.time;
+    // flame flicker — small, warm, alive
+    if (this.flame) {
+      const fl = 0.9 + 0.14 * Math.sin(t * 11.0) + 0.08 * Math.sin(t * 27.0 + 1.3);
+      this.flame.scale.setScalar(0.85 + 0.2 * fl);
+      if (this.flameGlow) this.flameGlow.scale.set(1.0 + 0.22 * fl, 1.0 + 0.28 * fl, 1);
+      this.altarLight.intensity = 5.6 + 1.7 * fl;
+    }
+    // movement V: the shaft narrows and cools, the hall darkens,
+    // the fire holds
+    const late = ss(progress, 0.9, 0.995);
+    this.key.intensity = lerp(3.0, 1.7, late);
+    this.hemi.intensity = lerp(0.55, 0.34, late);
+    this.rim.intensity = lerp(0.8, 1.0, late);
+    if (this.shaft) this.shaft.material.uniforms.uInt.value = lerp(0.16, 0.24, late);
+    this.scene.fog.density = lerp(0.030, 0.040, late);
   }
 }
 
@@ -211,6 +326,24 @@ function veinFigure(geo) {
     colors[i * 3 + 2] = base * 0.978;
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+}
+
+// soft radial glow for the flame — additive billboard
+function makeGlowTexture() {
+  const S = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = S;
+  const ctx = canvas.getContext('2d');
+  const grad = ctx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+  grad.addColorStop(0.0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.25, 'rgba(255,214,150,0.85)');
+  grad.addColorStop(0.6, 'rgba(255,150,70,0.25)');
+  grad.addColorStop(1.0, 'rgba(255,120,50,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, S, S);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
 }
 
 // soft multiply-decal for ground contact — precomputed, static
