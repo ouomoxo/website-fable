@@ -9,12 +9,12 @@ import * as THREE from 'three';
 // [t0, t1, pos0, pos1, look0, look1, fov0, fov1]
 // Gaps between shots hold the previous composition.
 const SHOTS = [
-  // I — the wall. A held exterior frame; barely breathing push-in.
-  [0.000, 0.105, [0, 4.6, 41], [0, 4.4, 31], [0, 7.6, 0], [0, 6.8, 0], 38, 39],
-  // approach the door
-  [0.115, 0.205, [0, 4.4, 31], [0, 3.6, 10], [0, 6.8, 0], [0, 4.8, -4], 39, 41],
-  // through the slit, into darkness
-  [0.215, 0.275, [0, 3.6, 10], [0, 3.2, -3.5], [0, 4.8, -4], [0, -1.5, -20], 41, 42],
+  // I — the colonnade. A held asymmetric frame; barely breathing drift.
+  [0.000, 0.105, [2.6, 2.5, 33], [2.4, 2.5, 31.4], [-3.2, 5.6, -4], [-3.2, 5.4, -4], 36, 36],
+  // perception — a slow slide between the files; the far fragment appears
+  [0.115, 0.205, [2.4, 2.3, 31.4], [0.6, 2.5, 13], [-3.2, 5.2, -4], [-2.2, 3.6, -12], 36, 38],
+  // threshold — between the piers, into darkness
+  [0.215, 0.275, [0.6, 2.5, 13], [0, 2.8, -4], [-2.2, 3.6, -12], [0, -1.5, -22], 38, 41],
   // II — the stair, the blade of light crossing mid-frame
   [0.285, 0.410, [0, 2.0, -11], [0, -8.2, -41], [0, -2.5, -26], [0, -12.5, -58], 42, 42],
   // III — the veiled one appears, small, far, lit from her window
@@ -86,14 +86,9 @@ export class CameraRig {
     this._look.x += px * 1.1;
     this._look.y += py * -0.7;
     // portrait screens: aim lower so the subject sits in the upper
-    // frame and the copy owns the floor; at the threshold, pan
-    // toward the fallen head so the hero keeps its subject
-    if (this.camera.aspect < 0.75) {
-      this._look.y -= 2.2;
-      this._look.x += 3.3 * Math.max(0, 1 - t / 0.1);
-    } else if (this.camera.aspect < 1) {
-      this._look.y -= 0.9;
-    }
+    // frame and the copy owns the floor
+    if (this.camera.aspect < 0.75) this._look.y -= 2.2;
+    else if (this.camera.aspect < 1) this._look.y -= 0.9;
     this.camera.up.copy(this._up);
     this.camera.lookAt(this._look);
 

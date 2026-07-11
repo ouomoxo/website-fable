@@ -1,13 +1,13 @@
 // ═══════════════════════════════════════════════════════════════
 // KATABASIS — world
-// Five rooms, descending. One wall, one stair, one goddess's head,
+// Five rooms, descending. A colonnade, a stair, a goddess's head,
 // one wing, one winged colossus. Coordinates are metres; the
 // surface is y = 0 and everything below is memory.
 // ═══════════════════════════════════════════════════════════════
 
 import * as THREE from 'three';
 import { createMaterials } from './materials.js';
-import { buildStairs, buildPlinth, scaleUV } from './builders.js';
+import { buildStairs, buildPlinth, buildColumn, scaleUV } from './builders.js';
 import { makeGlowTexture, makeDust, makeRay } from './effects.js';
 import { buildWingFragment } from './wings.js';
 import { loadSculptures } from './assets.js';
@@ -98,85 +98,95 @@ export class World {
     return m;
   }
 
-  // ── I · threshold — a blind wall, one lit slit, and a fallen
-  //      colossal head resting outside the door ─────────────────
+  // ── I · threshold — a colonnade at the edge of the dark ──────
+  //     Light enters from an unseen opening at the left. Most of
+  //     the architecture stays in shadow; the frame implies the
+  //     rest. Between two piers, the stair goes down.
 
   _buildThreshold() {
     const { wall, floor, marble, scan } = this.materials;
     const g = this.gThreshold = this._chamber([-0.1, 0.30]);
 
-    // plaza
-    this._floor(76, 50, 0, 0, 25, floor, g);
-    // vestibule floor behind the wall
-    this._floor(12, 12, 0, 0, -6, floor, g);
+    // one broad, dark, matte floor
+    this._floor(90, 64, 0, 0, 18, floor, g);
 
-    // the wall: two blind panels + lintel over a tall narrow slit
-    const T = 2.6;                                     // thickness
-    const SLIT_W = 3.0, SLIT_H = 9.5, H = 26, W = 76;
-    const panelW = (W - SLIT_W) / 2;
-    this._box(panelW, H, T, -(SLIT_W + panelW) / 2, H / 2, 0, wall, g, { cast: true, uv: [4, 3] });
-    this._box(panelW, H, T, (SLIT_W + panelW) / 2, H / 2, 0, wall, g, { cast: true, uv: [4, 3] });
-    this._box(SLIT_W + 3.6, H - SLIT_H, T, 0, SLIT_H + (H - SLIT_H) / 2, 0, wall, g, { cast: true, uv: [1, 2] });
+    // the colonnade — two files, camera walks between them.
+    // Nothing is shown complete: near shafts crop against the
+    // frame, far ones dissolve into darkness.
+    const colGeo = buildColumn({ height: 16, radius: 1.35, seed: 3 });
+    const place = (x, z, ry = 0) => {
+      const c = new THREE.Mesh(colGeo, marble);
+      c.position.set(x, 0, z);
+      c.rotation.y = ry;
+      c.castShadow = true;
+      c.receiveShadow = true;
+      g.add(c);
+      return c;
+    };
+    // right file — the near one is the foreground mass
+    place(8.2, 24, 0.4);
+    place(8.2, 8, 1.2);
+    place(8.2, -8, 2.1);
+    // left file — receding rhythm toward the light
+    place(-7.2, 16, 1.05);
+    place(-7.2, 0, 1.7);
+    place(-7.2, -16, 2.9);
 
-    // marble door reveal — a shallow frame, slightly proud of the wall
-    this._box(0.9, SLIT_H + 0.9, T + 0.5, -(SLIT_W / 2 + 0.37), (SLIT_H + 0.9) / 2, 0.35, marble, g, { cast: true, uv: [0.4, 3] });
-    this._box(0.9, SLIT_H + 0.9, T + 0.5, (SLIT_W / 2 + 0.37), (SLIT_H + 0.9) / 2, 0.35, marble, g, { cast: true, uv: [0.4, 3] });
-    this._box(SLIT_W + 1.8, 0.9, T + 0.5, 0, SLIT_H + 0.45 + 0.9 / 2, 0.35, marble, g, { cast: true, uv: [2, 0.4] });
+    // fragmented entablature over the files, dissolving upward
+    this._box(4.2, 2.2, 28, -7.2, 16 + 1.1, 10, wall, g, { cast: true, uv: [1, 3] });
+    this._box(4.2, 2.2, 20, 8.2, 16 + 1.1, 14, wall, g, { cast: true, uv: [1, 2.4] });
 
-    // a low threshold step
-    this._box(SLIT_W + 2.4, 0.35, 2.4, 0, 0.175, 1.6, marble, g, { uv: [2, 0.3] });
+    // a broken face set into the dark between the far columns —
+    // grounded on a low plinth, discovered rather than shown
+    const plinth = new THREE.Mesh(buildPlinth({ w: 2.2, h: 0.9, d: 2.2 }), marble);
+    plinth.position.set(-11.4, 0, -8);
+    plinth.castShadow = true;
+    plinth.receiveShadow = true;
+    g.add(plinth);
+    const relic = new THREE.Mesh(this.models.igea, scan);
+    relic.scale.setScalar(2.1);
+    relic.position.set(-11.4, 0.88, -8);
+    relic.rotation.y = 1.35;                           // profile to the passage
+    relic.castShadow = true;
+    relic.receiveShadow = true;
+    g.add(relic);
 
-    // the fallen colossus — a head set down outside its own house,
-    // face turned back toward the light that leaves through the door
-    const head = new THREE.Mesh(this.models.igea, scan);
-    head.scale.setScalar(9.0);
-    head.position.set(8.8, -0.95, 14);
-    head.rotation.set(-0.04, -0.95, -0.10);           // settled, listening to the door
-    head.castShadow = true;
-    head.receiveShadow = true;
-    g.add(head);
+    // the piers of the threshold — dressed marble monoliths; the
+    // dark between them is where the journey goes. Their stone is
+    // honed smoother than the shafts, so grazing light stays calm.
+    const pierMat = marble.clone();
+    pierMat.bumpScale = 0.1;
+    const pierL = this._box(3.4, 15, 3.0, -4.4, 7.5, -10.4, pierMat, g, { cast: true, uv: [1.1, 1.1] });
+    const pierR = this._box(3.4, 15, 3.0, 4.4, 7.5, -10.4, pierMat, g, { cast: true, uv: [1.1, 1.1] });
+    pierL.rotation.y = 0.04;
+    pierR.rotation.y = -0.05;
 
-    // a pale sliver of sky grazes the face from high in front
-    const sliver = new THREE.SpotLight(0xbcb2a0, 340, 60, 0.24, 0.55, 1.5);
-    sliver.position.set(-4, 28, 38);
-    sliver.target.position.set(8.8, 4, 14);
-    g.add(sliver, sliver.target);
-
-    // the door's spill, returned from the pale floor into the jaw
-    const bounce = new THREE.PointLight(0xffdcae, 85, 20, 1.6);
-    bounce.position.set(4.5, 1.0, 11.5);
-    g.add(bounce);
-
-    // vestibule: a short dark passage before the stair goes down
-    this._box(1.8, 15, 11, -4.1, 6.5, -5.5, wall, g, { uv: [1.2, 1.6] });
-    this._box(1.8, 15, 11, 4.1, 6.5, -5.5, wall, g, { uv: [1.2, 1.6] });
-    this._box(12, 1.6, 11, 0, 13.3, -6.6, wall, g, { uv: [1.4, 1.4] });
-
-    // warm light from inside, spilling through the slit onto the plaza
-    const inner = new THREE.SpotLight(0xffdfb0, 480, 70, 0.42, 0.55, 1.4);
-    inner.position.set(0, 6.5, -7.5);
-    inner.target.position.set(0, 0, 34);
-    inner.castShadow = this.quality.shadows;
-    if (inner.castShadow) {
-      inner.shadow.mapSize.set(1024, 1024);
-      inner.shadow.bias = -0.002;
-      inner.shadow.normalBias = 0.04;
+    // key: daylight from an opening beyond the left colonnade —
+    // one wide, soft, warm-neutral source raking across the shafts
+    const key = new THREE.SpotLight(0xe9e0cd, 1600, 120, 0.55, 0.9, 1.5);
+    key.position.set(-38, 22, 14);
+    key.target.position.set(12, 0, 4);
+    key.castShadow = this.quality.shadows;
+    if (key.castShadow) {
+      key.shadow.mapSize.set(2048, 2048);
+      key.shadow.bias = -0.0018;
+      key.shadow.normalBias = 0.05;
     }
-    g.add(inner, inner.target);
-    this.thresholdInner = inner;
+    g.add(key, key.target);
 
-    // the glowing depth seen through the doorway — fades as you reach it
-    this.doorGlow = this._slit(g, 6.2, 12.5, 0, 5.2, -9.9, 0, 0xd8b98c, 0.999);
-    this.doorGlow.material.transparent = true;
-    const glow = new THREE.PointLight(0xffdfb0, 34, 20, 1.6);
-    glow.position.set(0, 4.5, -6.5);
-    g.add(glow);
+    // cool-neutral return from the stone overhead — keeps midtones
+    const fill = new THREE.HemisphereLight(0x3c3b38, 0x16120e, 0.3);
+    g.add(fill);
 
-    // cold, faint fill from high in front — the wall's face barely reads
-    const face = new THREE.SpotLight(0x76839a, 260, 110, 1.05, 0.9, 1.6);
-    face.position.set(-14, 44, 42);
-    face.target.position.set(0, 8, 0);
-    g.add(face, face.target);
+    // warm-black lift on the shadow side, so darkness stays material
+    const lift = new THREE.PointLight(0x413a30, 40, 40, 1.7);
+    lift.position.set(16, 6, 26);
+    g.add(lift);
+
+    // a faint presence from the dark beyond the piers
+    const beyond = new THREE.PointLight(0x4c4a44, 14, 24, 1.8);
+    beyond.position.set(0, 3, -20);
+    g.add(beyond);
   }
 
   // ── II · the stair — a slot of darkness, one blade of light ──
@@ -471,12 +481,6 @@ export class World {
     for (const g of this.chambers) {
       const [a, b] = g.userData.range;
       g.visible = progress >= a && progress <= b;
-    }
-
-    // the door's glow gives way to the stair as you reach it
-    if (this.doorGlow) {
-      this.doorGlow.material.opacity = 1 - THREE.MathUtils.smoothstep(progress, 0.16, 0.215);
-      this.doorGlow.visible = this.doorGlow.material.opacity > 0.005;
     }
 
     // fog: thin outside, dense in the stair and passages, clear in the rotunda

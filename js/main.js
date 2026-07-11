@@ -214,6 +214,7 @@ function updateDOM(p) {
     if (p >= c.a) activeIdx = i;
   }
   navLinks.forEach((a, i) => a.classList.toggle('active', i === activeIdx));
+  document.body.classList.toggle('past-hero', p > 0.06);
 }
 
 // ── attention: light swells faintly toward your gaze ───────────

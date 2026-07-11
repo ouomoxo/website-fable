@@ -12,7 +12,7 @@ light, until the window wakes and the mass becomes a face.
 
 | | Room | |
 |---|---|---|
-| I | **Threshold** | a fallen colossal head outside a wall with one lit slit |
+| I | **Threshold** | a silent colonnade; daylight from an unseen opening; two piers and a dark slot |
 | II | **The Stair** | a slot of darkness, one blade of light |
 | III | **The Face** | the same face again, found by a waking window |
 | IV | **The Wing** | a marble wing recovered without its figure |

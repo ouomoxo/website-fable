@@ -217,7 +217,7 @@ body.entered #chrome { opacity: 1; pointer-events: auto; }
   opacity: 0;
   transition: opacity 2s ease 0.6s;
 }
-body.entered #nav { opacity: 1; }
+body.entered.past-hero #nav { opacity: 1; }
 
 #nav a {
   display: flex;
@@ -317,79 +317,65 @@ body.entered #nav { opacity: 1; }
 .ch-inner.right .body { margin-left: auto; }
 .ch-inner.center .body { margin: 0 auto; }
 
-/* ── Hero ──────────────────────────────────────────────────── */
+/* ── Hero — quiet type in the shadow field, upper left ─────── */
 
 .ch-inner.hero {
-  margin: 0 auto;
-  text-align: center;
+  margin: 0;
+  margin-bottom: clamp(90px, 15vh, 170px);
+  text-align: left;
   max-width: none;
-  width: 100%;
-  align-self: flex-start;
-  margin-top: clamp(80px, 13vh, 150px);
+  align-self: flex-end;
 }
 
 .hero-title {
   font-family: var(--serif);
   font-weight: 300;
-  font-size: clamp(46px, 10.5vw, 138px);
+  font-size: clamp(34px, 4.6vw, 62px);
   line-height: 1;
-  letter-spacing: 0.16em;
-  text-indent: 0.16em;
+  letter-spacing: 0.34em;
   color: var(--ivory);
   opacity: 0;
 }
 body.entered .hero-title { animation: heroRise 2.6s var(--ease-out) 0.5s forwards; }
 
 @keyframes heroRise {
-  from { opacity: 0; transform: translateY(0.22em); }
+  from { opacity: 0; transform: translateY(0.18em); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
 .hero-sub {
   font-family: var(--serif);
   font-style: italic;
-  font-size: clamp(16px, 2.2vw, 22px);
-  color: var(--ivory-dim);
-  margin-top: clamp(20px, 3.6vh, 36px);
+  font-size: clamp(15px, 1.6vw, 18px);
+  color: rgba(217, 209, 195, 0.8);
+  margin-top: clamp(14px, 2.2vh, 22px);
+  letter-spacing: 0.02em;
   opacity: 0;
 }
-body.entered .hero-sub { animation: fadeUp 2s var(--ease-out) 1.6s forwards; }
+body.entered .hero-sub { animation: fadeUp 2s var(--ease-out) 1.5s forwards; }
 
+/* the cue: one still hairline, at the right architectural margin */
 .scroll-hint {
   position: fixed;
-  left: 50%;
-  bottom: max(36px, env(safe-area-inset-bottom));
-  transform: translate(-50%, 0);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  font-family: var(--sans);
-  font-size: 9px;
-  letter-spacing: 0.4em;
-  text-indent: 0.4em;
-  text-transform: uppercase;
-  color: var(--ivory-dim);
+  right: clamp(28px, 8vw, 130px);
+  bottom: max(34px, env(safe-area-inset-bottom));
   opacity: 0;
 }
-body.entered .scroll-hint { animation: fadeUpCentered 2s var(--ease-out) 2.4s forwards; }
-
-@keyframes fadeUpCentered {
-  from { opacity: 0; transform: translate(-50%, 16px); }
-  to   { opacity: 1; transform: translate(-50%, 0); }
-}
+body.entered .scroll-hint { animation: fadeUp 2.4s var(--ease-out) 2.6s forwards; }
 
 .sh-line {
   display: block;
   width: 1px;
-  height: 44px;
-  background: linear-gradient(to bottom, transparent, var(--ivory-dim));
-  animation: plumb 3s ease-in-out infinite;
-  transform-origin: top center;
+  height: 52px;
+  background: linear-gradient(to bottom, transparent, rgba(217, 209, 195, 0.55));
 }
-@keyframes plumb {
-  0%, 100% { transform: scaleY(0.4); opacity: 0.4; }
-  50% { transform: scaleY(1); opacity: 1; }
+
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 /* ── Finale ────────────────────────────────────────────────── */
@@ -462,7 +448,9 @@ body.entered .scroll-hint { animation: fadeUpCentered 2s var(--ease-out) 2.4s fo
   }
   .ch-inner.right { text-align: left; margin-left: 0; margin-right: auto; }
   .ch-inner.right .body { margin-left: 0; }
-  .ch-inner.hero { align-self: flex-start; margin-bottom: 0; margin-top: 16vh; }
+  .ch-inner.hero { align-self: flex-end; margin-bottom: 15vh; margin-top: 0; }
+  .hero-title { font-size: clamp(26px, 7.4vw, 38px); }
+  .scroll-hint { right: 26px; bottom: 74px; }
   .ch-inner.low { margin-bottom: 8vh; }
   .ch-inner.center { margin-bottom: 13vh; }
   #anabasis .ch-inner { margin-bottom: 9vh; }
@@ -481,7 +469,6 @@ body.entered .scroll-hint { animation: fadeUpCentered 2s var(--ease-out) 2.4s fo
 /* ═══ REDUCED MOTION ═══════════════════════════════════════════ */
 
 @media (prefers-reduced-motion: reduce) {
-  .sh-line { animation: none; }
   body.entered .hero-title, body.entered .hero-sub, body.entered .scroll-hint {
     animation-duration: 0.01s; animation-delay: 0s;
   }
