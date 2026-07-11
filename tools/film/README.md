@@ -57,6 +57,12 @@ constant sun silently drowns the arc).
   -Y camera (an object-level rotation does not take in headless render).
 - `js/film.js` adds pointer/gyro **parallax** (overscan pan) so it reads as
   depth, not a flat scroll; grain is static and off on touch for performance.
+- Every frame is decoded once up front to an **ImageBitmap** (off the main
+  thread, through a small concurrency pool). Scrubbing then only blits an
+  already-decoded GPU-ready bitmap — no per-scroll decode — which is what
+  keeps it smooth on mobile. Trade-off: photoreal frames mean a fixed camera
+  path (parallax, not free orbit); free-orbit at this fidelity would need
+  baked lightmaps on the geometry instead.
 - `--novol` keeps frame time to ~20 s (CPU); the full world volume is ~5–10×
   slower but gives true volumetric god-rays if you have the render budget.
 - Change `FRAMES` in `js/main.js` if you render a different count.

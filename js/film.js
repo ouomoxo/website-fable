@@ -3,6 +3,12 @@
 // The visual backbone is a pre-rendered Cycles sequence (path-traced
 // marble, GI, soft shadows, atmospheric depth). The browser is a
 // projector: scroll maps to a frame, drawn cover-fit to the canvas.
+//
+// Every frame is decoded ONCE up front, off the main thread, into an
+// ImageBitmap (a GPU-ready texture). Scrubbing then never decodes —
+// it just blits an already-decoded bitmap — so scroll stays smooth
+// even on mobile. (Decoding WebP lazily on each scroll frame was the
+// old lag.)
 // ═══════════════════════════════════════════════════════════════
 
 const pad = (n) => String(n).padStart(3, '0');
@@ -48,22 +54,40 @@ export class Film {
 
   frameURL(i) { return `${this.dir}/f${pad(i)}.${this.ext}`; }
 
-  // load the strided set; frame 0 and the last frame always included so
-  // the ends are crisp. resolves when everything requested has settled.
-  load(onProgress) {
+  // fetch + decode every frame to an ImageBitmap up front (off-thread),
+  // through a small concurrency pool so the decode burst never thrashes
+  async load(onProgress) {
     const idx = [];
     for (let i = 0; i < this.count; i += this.stride) idx.push(i);
     if (idx[idx.length - 1] !== this.count - 1) idx.push(this.count - 1);
     this.loadCount = idx.length;
     let done = 0;
-    return Promise.all(idx.map((i) => new Promise((res) => {
-      const img = new Image();
-      img.decoding = 'async';
-      const settle = () => { done++; onProgress?.(done / idx.length); res(); };
-      img.onload = () => { this.images[i] = img; if (this._first == null) this._first = i; settle(); };
-      img.onerror = settle;
-      img.src = this.frameURL(i);
-    }))).then(() => this.loaded = this.images.some(Boolean));
+
+    const decodeOne = async (i) => {
+      try {
+        if (typeof createImageBitmap === 'function') {
+          const r = await fetch(this.frameURL(i));
+          if (!r.ok) throw new Error('http ' + r.status);
+          this.images[i] = await createImageBitmap(await r.blob());
+        } else {
+          await new Promise((res, rej) => {
+            const im = new Image();
+            im.onload = () => { this.images[i] = im; res(); };
+            im.onerror = rej;
+            im.src = this.frameURL(i);
+          });
+        }
+        if (this._first == null) this._first = i;
+      } catch (e) { /* leave slot null; _nearest fills the gap */ }
+      done++; onProgress?.(done / idx.length);
+    };
+
+    const POOL = 6;
+    let cur = 0;
+    const worker = async () => { while (cur < idx.length) await decodeOne(idx[cur++]); };
+    await Promise.all(Array.from({ length: Math.min(POOL, idx.length) }, worker));
+    this.loaded = this.images.some(Boolean);
+    return this.loaded;
   }
 
   _nearest(i) {
@@ -84,7 +108,8 @@ export class Film {
     this.px += (this.tpx - this.px) * 0.06;
     this.py += (this.tpy - this.py) * 0.06;
     const c = this.canvas, ctx = this.ctx;
-    const cw = c.width, ch = c.height, iw = img.naturalWidth, ih = img.naturalHeight;
+    const cw = c.width, ch = c.height;
+    const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
     const s = Math.max(cw / iw, ch / ih) * (1 + this.over);   // cover + overscan
     const w = iw * s, h = ih * s;
     const maxX = (w - cw) / 2, maxY = (h - ch) / 2;
