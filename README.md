@@ -1,8 +1,8 @@
 # KATABASIS — The House of Forgotten Gods
 
-A digital monument in five rooms: a descent past one veiled figure, one
-recovered wing, and one headless winged colossus beneath an oculus. Scroll is
-the dolly; the building refuses to be rushed.
+A digital monument in five rooms: a descent past a goddess's head, one
+recovered wing, and a winged colossus beneath an oculus. Scroll is the
+dolly; the building refuses to be rushed.
 
 ![KATABASIS](assets/poster.jpg)
 
@@ -12,9 +12,9 @@ the dolly; the building refuses to be rushed.
 |---|---|---|
 | I | **Threshold** | a blind monumental wall, one lit slit |
 | II | **The Stair** | a slot of darkness, one blade of light |
-| III | **The Veiled** | a single shrouded figure beneath a high window |
+| III | **The Face** | a goddess's head beneath a high window |
 | IV | **The Wing** | a marble wing recovered without its figure |
-| V | **The Winged One** | a headless colossus where the light comes down |
+| V | **The Winged One** | a winged colossus where the light comes down |
 | VI | **Anabasis** | the way up |
 
 ## Run it
@@ -31,11 +31,13 @@ python3 -m http.server 8000
 
 - **Three.js** (vendored in `js/lib/`), one `<canvas>`, one post pass
   (ACES tone, gentle split grade, near-invisible grain, quiet vignette).
-- **Every asset is procedural.** Aged-ivory marble and umber limestone are
-  computed on a canvas; the veiled figures are radial drape fields
-  (silhouette profile + fold harmonics) with cavity shading baked into
-  vertex colors; the wings are parametric carved surfaces with scalloped
-  trailing edges. No model files, no downloaded textures.
+- **The sculptures are real scans.** The winged colossus is *Lucy*
+  (Stanford 3D Scanning Repository); the head is the *Igea* scan
+  (Cyberware sample). Both are served as meshopt-compressed GLBs
+  (0.5–2.6 MB), normalized and vertex-tinted at load; a lighter tier
+  ships to touch devices. The architectural stone and the wing fragment
+  remain procedural — marble and limestone computed on a canvas, the
+  wing a parametric carved surface.
 - **The camera is a shot list, not a tour.** Each room gets one slow,
   composed movement, then stillness; between shots the frame holds.
   Pointer parallax lets you look without leaving the path.
@@ -56,5 +58,11 @@ python3 -m http.server 8000
 - Portrait screens are reframed — subjects sit high, copy owns the floor.
 - No WebGL? A quiet fallback page keeps the door marked.
 - `?probe` exposes `window.__KB` for deterministic visual testing.
+
+## Attribution
+
+- *Lucy* — courtesy of the [Stanford 3D Scanning Repository](https://graphics.stanford.edu/data/3Dscanrep/).
+- *Igea* — Cyberware sample scan, long redistributed for graphics research.
+- Decimated meshes via [common-3d-test-models](https://github.com/alecjacobson/common-3d-test-models).
 
 MMXXVI. No stone was quarried.

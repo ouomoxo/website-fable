@@ -23,7 +23,7 @@ const QUALITY = {
   dpr: clamp(window.devicePixelRatio || 1, 1, isTouch ? 1.8 : 2),
   texSize: isTouch ? 384 : 512,
   shadows: true,
-  detail: isTouch ? 0.7 : 1,
+  assetTier: isTouch ? 'lo' : 'hi',
   dustScale: isTouch ? 0.6 : 1,
 };
 
@@ -76,28 +76,23 @@ const sound = new Cathedral();
 
 const loaderFill = $('#loader-fill');
 
-function runLoader() {
+async function runLoader() {
   const steps = world.buildSteps;
   const total = steps.length;
-  let i = 0;
+  const setBar = (f) => { loaderFill.style.transform = `scaleX(${Math.min(1, f)})`; };
 
-  function step() {
-    if (i >= total) {
-      finishLoading();
-      return;
+  for (let i = 0; i < total; i++) {
+    await new Promise((r) => requestAnimationFrame(r));
+    try {
+      // steps may be async (asset downloads) and may report progress
+      await steps[i]((f) => setBar((i + f) / total));
+    } catch (err) {
+      console.error('build failed at step', i, err);
     }
-    requestAnimationFrame(() => {
-      try {
-        steps[i]();
-      } catch (err) {
-        console.error('build failed at step', i, err);
-      }
-      i++;
-      loaderFill.style.transform = `scaleX(${i / total})`;
-      setTimeout(step, 120);
-    });
+    setBar((i + 1) / total);
+    await new Promise((r) => setTimeout(r, 90));
   }
-  step();
+  finishLoading();
 }
 
 function finishLoading() {

@@ -1,15 +1,16 @@
 // ═══════════════════════════════════════════════════════════════
 // KATABASIS — world
-// Five rooms, descending. One wall, one stair, one veiled figure,
+// Five rooms, descending. One wall, one stair, one goddess's head,
 // one wing, one winged colossus. Coordinates are metres; the
 // surface is y = 0 and everything below is memory.
 // ═══════════════════════════════════════════════════════════════
 
 import * as THREE from 'three';
 import { createMaterials } from './materials.js';
-import { buildStairs, buildPlinth, buildVeiledFigure, scaleUV } from './builders.js';
+import { buildStairs, buildPlinth, scaleUV } from './builders.js';
 import { makeGlowTexture, makeDust, makeRay } from './effects.js';
-import { WingPair, buildWingFragment } from './wings.js';
+import { buildWingFragment } from './wings.js';
+import { loadSculptures } from './assets.js';
 
 const V3 = THREE.Vector3;
 
@@ -32,10 +33,12 @@ export class World {
 
   _plan() {
     this.buildSteps = [
+      (onProgress) => loadSculptures(this.quality.assetTier, onProgress)
+        .then((models) => { this.models = models; }),
       () => { this.materials = createMaterials(this.renderer, this.quality); },
       () => this._buildThreshold(),
       () => this._buildStair(),
-      () => this._buildVeiled(),
+      () => this._buildFace(),
       () => this._buildWing(),
       () => this._buildRotunda(),
       () => this._buildAtmosphere(),
@@ -194,10 +197,10 @@ export class World {
     g.add(pull);
   }
 
-  // ── III · the veiled — one figure, one window ────────────────
+  // ── III · the face — a goddess's head, one window ────────────
 
-  _buildVeiled() {
-    const { wall, floor, marble, figure } = this.materials;
+  _buildFace() {
+    const { wall, floor, marble, scan } = this.materials;
     const g = this.gVeiled = this._chamber([0.28, 0.74]);
 
     // hall: floor y -12, z -46 → -94
@@ -209,25 +212,23 @@ export class World {
     this._box(14.6, 24, 2.5, 9.7, -1, -95.2, wall, g, { uv: [1.6, 2] });
     this._box(4.8, 12, 2.5, 0, 5, -95.2, wall, g, { uv: [0.6, 1.2] });
 
-    // the figure
-    const plinth = new THREE.Mesh(buildPlinth({ w: 2.7, h: 1.7, d: 2.7 }), marble);
+    // the head — monumental, over twice life size
+    const plinth = new THREE.Mesh(buildPlinth({ w: 2.6, h: 1.5, d: 2.6 }), marble);
     plinth.position.set(5, -12, -72);
     plinth.castShadow = true;
     plinth.receiveShadow = true;
     g.add(plinth);
 
-    const fig = new THREE.Mesh(
-      buildVeiledFigure({ height: 4.6, seed: 5, pose: 'witness', detail: this.quality.detail }),
-      figure
-    );
-    fig.position.set(5, -10.32, -72);
-    fig.rotation.y = Math.PI + 0.32;                   // bows toward the entrance
-    fig.castShadow = true;
-    fig.receiveShadow = true;
-    g.add(fig);
+    const head = new THREE.Mesh(this.models.igea, scan);
+    head.scale.setScalar(2.7);
+    head.position.set(5, -10.52, -72);
+    head.rotation.y = -0.55;                           // turned toward the window light
+    head.castShadow = true;
+    head.receiveShadow = true;
+    g.add(head);
 
     // key: one high window on the left wall, raking across the figure
-    const key = new THREE.SpotLight(0xf2e4c8, 760, 60, 0.165, 0.5, 1.35);
+    const key = new THREE.SpotLight(0xf2e4c8, 520, 60, 0.165, 0.5, 1.35);
     key.position.set(-14.5, 8, -65);
     key.target.position.set(5, -8.5, -72);
     key.castShadow = this.quality.shadows;
@@ -237,7 +238,7 @@ export class World {
       key.shadow.normalBias = 0.05;
     }
     g.add(key, key.target);
-    this.veiled.push({ spot: key, base: 760, pos: new V3(5, -7.5, -72), boost: 0 });
+    this.veiled.push({ spot: key, base: 520, pos: new V3(5, -9.2, -72), boost: 0 });
 
     // the window itself, and the body of its light
     this._slit(g, 1.3, 6.5, -15.9, 7, -65.5, Math.PI / 2, 0xd4bd96);
@@ -247,9 +248,9 @@ export class World {
     this.dustVeiled = { center: [-5, -2, -68.5], box: [8, 14, 5] };
 
     // cool rim from behind-right, separating her from the dark
-    const rim = new THREE.SpotLight(0x7e8ea6, 300, 40, 0.22, 0.7, 1.5);
+    const rim = new THREE.SpotLight(0x7e8ea6, 220, 18, 0.14, 0.65, 1.5);
     rim.position.set(13, -3, -84);
-    rim.target.position.set(5, -7.5, -72);
+    rim.target.position.set(5, -9.2, -72);
     g.add(rim, rim.target);
 
     // bounce off the floor pool — soft, warm, from below
@@ -320,7 +321,7 @@ export class World {
   // ── V · the winged one — the rotunda ─────────────────────────
 
   _buildRotunda() {
-    const { wall, floor, marble, figure } = this.materials;
+    const { wall, floor, marble } = this.materials;
     const g = this.gRotunda = this._chamber([0.845, 1.1]);
 
     // descent passage: stair z -124 → -136, y -12 → -18
@@ -347,31 +348,19 @@ export class World {
     drum.receiveShadow = true;
     g.add(drum);
 
-    // the colossus
+    // the colossus — a winged figure, nine metres of stone
     const plinth = new THREE.Mesh(buildPlinth({ w: 5.4, h: 2.8, d: 5.4 }), marble);
     plinth.position.set(0, -18, -158);
     plinth.castShadow = true;
     plinth.receiveShadow = true;
     g.add(plinth);
 
-    const fig = new THREE.Mesh(
-      buildVeiledFigure({ height: 8.4, seed: 40, pose: 'nike', detail: this.quality.detail }),
-      figure
-    );
-    fig.position.set(0, -15.22, -158);
-    fig.rotation.y = Math.PI;                          // faces the entrance
-    fig.castShadow = true;
-    fig.receiveShadow = true;
-    g.add(fig);
-
-    // wings — one carved surface per side
-    const wingMat = figure.clone();
-    wingMat.vertexColors = false;
-    wingMat.side = THREE.DoubleSide;
-    this.wingPair = new WingPair(wingMat, 10.5);
-    this.wingPair.group.position.set(0, -8.8, -158.9);
-    this.wingPair.group.traverse((o) => { if (o.isMesh) o.receiveShadow = true; });
-    g.add(this.wingPair.group);
+    const colossus = new THREE.Mesh(this.models.lucy, this.materials.scan);
+    colossus.scale.setScalar(9.2);
+    colossus.position.set(0, -15.22, -158);
+    colossus.castShadow = true;
+    colossus.receiveShadow = true;
+    g.add(colossus);
 
     // the oculus — one round wound of sky
     // the sun enters the oculus at an angle, the way real light does
@@ -410,7 +399,7 @@ export class World {
     );
 
     // cool rim from behind, tracing wings and shoulders
-    const back = new THREE.SpotLight(0x8296b2, 420, 46, 0.55, 0.6, 1.4);
+    const back = new THREE.SpotLight(0x77808f, 380, 46, 0.55, 0.6, 1.4);
     back.position.set(0, -2, -180);
     back.target.position.set(0, -9, -157);
     g.add(back, back.target);
@@ -474,15 +463,9 @@ export class World {
     for (const d of this.dusts) if (d.parent.visible) d.material.uniforms.uTime.value = time;
     for (const r of this.rays) if (r.parent.visible) r.material.uniforms.uTime.value = time;
 
-    // attention light on the veiled figure — an almost imperceptible swell
+    // attention light on the head — an almost imperceptible swell
     for (const vfig of this.veiled) {
       vfig.spot.intensity += ((vfig.base * (1 + vfig.boost * 0.22)) - vfig.spot.intensity) * Math.min(1, dt * 3);
-    }
-
-    // wings: one slow gesture across the approach
-    if (this.wingPair && this.gRotunda.visible) {
-      const spread = 0.55 + 0.45 * THREE.MathUtils.smoothstep(progress, 0.865, 0.955);
-      this.wingPair.setSpread(spread);
     }
 
     // ending: the room recedes; only the oculus stays
@@ -490,7 +473,7 @@ export class World {
       const end = THREE.MathUtils.smoothstep(progress, 0.955, 1.0);
       this.oculusLight.intensity = 900 * (1 - end * 0.35);
       this.rotundaFront.intensity = 200 * (1 - end * 0.8);
-      this.rotundaBack.intensity = 420 * (1 - end * 0.6);
+      this.rotundaBack.intensity = 380 * (1 - end * 0.6);
       this.finalShaft.material.uniforms.uIntensity.value = 0.11 + end * 0.09;
       this.halo.material.opacity = 0.20 + end * 0.20;
     }

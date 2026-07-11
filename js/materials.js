@@ -239,6 +239,16 @@ export function createMaterials(renderer, quality) {
     vertexColors: true,
   });
 
+  // scanned sculpture — no UVs; tonal variation lives in vertex colors
+  const scan = new THREE.MeshStandardMaterial({
+    color: 0xb8ad99,
+    roughness: 0.78,
+    metalness: 0.0,
+    envMap: env,
+    envMapIntensity: 0.15,
+    vertexColors: true,
+  });
+
   const wall = new THREE.MeshStandardMaterial({
     map: wallTex,
     bumpMap: bumpCoarse,
@@ -270,7 +280,7 @@ export function createMaterials(renderer, quality) {
     envMapIntensity: 0.12,
   });
 
-  return { marble, figure, wall, floor, stone, env };
+  return { marble, figure, scan, wall, floor, stone, env };
 }
 
 // dim architectural environment — one pale overhead opening,

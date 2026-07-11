@@ -458,12 +458,12 @@ body.entered .scroll-hint { animation: fadeUpCentered 2s var(--ease-out) 2.4s fo
   .ch-inner { margin-bottom: 16vh; }
   .ch-inner:not(.hero)::before {
     inset: -10% -18%;
-    background: radial-gradient(ellipse 78% 68% at center, rgba(5, 4, 3, 0.68), rgba(5, 4, 3, 0) 74%);
+    background: radial-gradient(ellipse 78% 68% at center, rgba(5, 4, 3, 0.75), rgba(5, 4, 3, 0) 76%);
   }
   .ch-inner.right { text-align: left; margin-left: 0; margin-right: auto; }
   .ch-inner.right .body { margin-left: 0; }
   .ch-inner.hero { align-self: flex-start; margin-bottom: 0; margin-top: 16vh; }
-  .ch-inner.low { margin-bottom: 18vh; }
+  .ch-inner.low { margin-bottom: 8vh; }
   .ch-inner.center { margin-bottom: 13vh; }
   #anabasis .ch-inner { margin-bottom: 9vh; }
 

@@ -107,27 +107,3 @@ export function buildWingFragment(material, { scale = 8, spread = 0.78, side = 1
   }
   return group;
 }
-
-export class WingPair {
-  constructor(material, scale = 10) {
-    this.group = new THREE.Group();
-    this.scale = scale;
-    this.surfaces = [];
-    for (const side of [-1, 1]) {
-      for (const layer of [0, 1]) {
-        const w = new WingSurface(side, layer, material);
-        this.surfaces.push(w);
-        this.group.add(w.mesh);
-      }
-    }
-    this._spread = -1;
-    this.setSpread(0);
-  }
-
-  setSpread(s) {
-    s = Math.min(1, Math.max(0, s));
-    if (Math.abs(s - this._spread) < 0.0008) return;
-    this._spread = s;
-    for (const w of this.surfaces) w.deform(s, this.scale);
-  }
-}
