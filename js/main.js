@@ -1,12 +1,9 @@
 // ═══════════════════════════════════════════════════════════════
 // KLEOS — main
-// Boot, descent, and return.
+// A projector for a pre-rendered Cycles film. Scroll is the reel.
 // ═══════════════════════════════════════════════════════════════
 
-import * as THREE from 'three';
-import { World } from './world.js';
-import { CameraRig } from './camera.js';
-import { PostPass } from './effects.js';
+import { Film } from './film.js';
 import { Cathedral } from './audio.js';
 
 const $ = (s) => document.querySelector(s);
@@ -14,21 +11,10 @@ const $$ = (s) => Array.from(document.querySelectorAll(s));
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 
-// ── capability & quality ───────────────────────────────────────
-
 const isTouch = matchMedia('(pointer: coarse)').matches;
 const prefersStill = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const QUALITY = {
-  dpr: clamp(window.devicePixelRatio || 1, 1, isTouch ? 1.8 : 2),
-  texSize: isTouch ? 384 : 512,
-  shadows: true,
-  assetTier: isTouch ? 'lo' : 'hi',
-  detail: isTouch ? 0.7 : 1,
-  shadowSize: isTouch ? 2048 : 4096,
-};
-
-// ── state ──────────────────────────────────────────────────────
+const FRAMES = 72;
 
 const state = {
   progress: 0,
@@ -36,75 +22,52 @@ const state = {
   entered: false,
   still: prefersStill,
   time: 0,
-  fpsSamples: [],
-  degraded: false,
 };
 
-// ── webgl bootstrap ────────────────────────────────────────────
+// ── projector ──────────────────────────────────────────────────
 
-let renderer;
-try {
-  const canvas = $('#scene');
-  renderer = new THREE.WebGLRenderer({
-    canvas,
-    antialias: true,
-    powerPreference: 'high-performance',
-    stencil: false,
-  });
-  const gl = renderer.getContext();
-  if (!gl) throw new Error('no context');
-} catch (err) {
-  $('#loader').remove();
-  $('#fallback').hidden = false;
-  document.body.classList.add('entered');
-  throw err;
-}
-
-renderer.setPixelRatio(QUALITY.dpr);
-renderer.setSize(innerWidth, innerHeight);
-renderer.shadowMap.enabled = QUALITY.shadows;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.toneMapping = THREE.NoToneMapping;               // graded in the post pass
-renderer.outputColorSpace = THREE.LinearSRGBColorSpace;   // post converts to sRGB
-
-const world = new World(renderer, QUALITY);
-const rig = new CameraRig(innerWidth / innerHeight);
-const post = new PostPass(renderer, innerWidth, innerHeight, QUALITY.dpr);
+const canvas = $('#scene');
+const film = new Film(canvas, {
+  count: FRAMES,
+  dir: isTouch ? 'assets/film-lo' : 'assets/film',
+  ext: 'webp',
+  stride: 1,
+});
 const sound = new Cathedral();
 
 // ── loader ─────────────────────────────────────────────────────
 
 const loaderFill = $('#loader-fill');
+const setBar = (f) => { loaderFill.style.transform = `scaleX(${Math.min(1, f)})`; };
 
 async function runLoader() {
-  const steps = world.buildSteps;
-  const total = steps.length;
-  const setBar = (f) => { loaderFill.style.transform = `scaleX(${Math.min(1, f)})`; };
-
-  for (let i = 0; i < total; i++) {
-    await new Promise((r) => requestAnimationFrame(r));
-    try {
-      // steps may be async (asset downloads) and may report progress
-      await steps[i]((f) => setBar((i + f) / total));
-    } catch (err) {
-      console.error('build failed at step', i, err);
-    }
-    setBar((i + 1) / total);
-    await new Promise((r) => setTimeout(r, 90));
+  let ok = false;
+  try {
+    await film.load((f) => setBar(f * 0.98));
+    ok = film.loaded;
+  } catch (err) {
+    console.error('film load failed', err);
   }
+  setBar(1);
+  if (!ok) { fail(); return; }
   finishLoading();
 }
 
+function fail() {
+  $('#loader').remove();
+  $('#fallback').hidden = false;
+  document.body.classList.add('entered');
+}
+
 function finishLoading() {
-  // one warm-up render so entry doesn't stutter
-  world.update(0);
-  rig.update(0);
-  post.render(world.scene, rig.camera, 0);
+  film.draw(0, true);
   const enterBox = $('#loader-enter');
   enterBox.hidden = false;
   enterBox.classList.add('reveal');
   $('#enter').focus({ preventScroll: true });
 }
+
+const fadeBlack = { value: 1, target: 1 };
 
 function enter() {
   if (state.entered) return;
@@ -114,7 +77,6 @@ function enter() {
   scrollTo(0, 0);
   fadeBlack.target = 0;
 }
-
 $('#enter').addEventListener('click', enter);
 
 // ── scroll → progress ──────────────────────────────────────────
@@ -125,17 +87,15 @@ function readScroll() {
 }
 addEventListener('scroll', readScroll, { passive: true });
 
+function smoothScrollToProgress(p) {
+  const max = document.documentElement.scrollHeight - innerHeight;
+  scrollTo({ top: p * max, behavior: state.still ? 'auto' : 'smooth' });
+}
 addEventListener('keydown', (e) => {
   if (e.key === 'Home') { e.preventDefault(); smoothScrollToProgress(0); }
   if (e.key === 'End') { e.preventDefault(); smoothScrollToProgress(1); }
 });
 
-function smoothScrollToProgress(p) {
-  const max = document.documentElement.scrollHeight - innerHeight;
-  scrollTo({ top: p * max, behavior: state.still ? 'auto' : 'smooth' });
-}
-
-// nav
 $$('#nav a').forEach((a) => {
   a.addEventListener('click', (e) => {
     e.preventDefault();
@@ -144,36 +104,23 @@ $$('#nav a').forEach((a) => {
     smoothScrollToProgress(r0 + (r1 - r0) * 0.45);
   });
 });
-$('#wordmark').addEventListener('click', (e) => {
-  e.preventDefault();
-  smoothScrollToProgress(0);
-});
+$('#wordmark').addEventListener('click', (e) => { e.preventDefault(); smoothScrollToProgress(0); });
 $('#return-top').addEventListener('click', () => smoothScrollToProgress(0));
 
-// ── sound toggle ───────────────────────────────────────────────
+// ── sound + motion toggles ─────────────────────────────────────
 
 const soundToggle = $('#sound-toggle');
-function setSoundUI(on) {
-  soundToggle.setAttribute('aria-pressed', on ? 'true' : 'false');
-}
 soundToggle.addEventListener('click', async () => {
-  if (sound.enabled) { sound.disable(); setSoundUI(false); }
-  else { const ok = await sound.enable(); setSoundUI(ok); }
+  if (sound.enabled) { sound.disable(); soundToggle.setAttribute('aria-pressed', 'false'); }
+  else { const ok = await sound.enable(); soundToggle.setAttribute('aria-pressed', ok ? 'true' : 'false'); }
 });
-
-// ── motion toggle (STILL) ──────────────────────────────────────
 
 const motionToggle = $('#motion-toggle');
-function setStillUI() {
-  motionToggle.setAttribute('aria-pressed', state.still ? 'true' : 'false');
-}
+const setStillUI = () => motionToggle.setAttribute('aria-pressed', state.still ? 'true' : 'false');
 setStillUI();
-motionToggle.addEventListener('click', () => {
-  state.still = !state.still;
-  setStillUI();
-});
+motionToggle.addEventListener('click', () => { state.still = !state.still; setStillUI(); });
 
-// ── sections ───────────────────────────────────────────────────
+// ── copy beats ─────────────────────────────────────────────────
 
 const chapters = $$('.chapter').map((el) => {
   const [a, b] = el.dataset.range.split(',').map(Number);
@@ -181,10 +128,7 @@ const chapters = $$('.chapter').map((el) => {
 });
 const navLinks = $$('#nav a');
 
-function smoothstep(a, b, x) {
-  const t = clamp((x - a) / (b - a), 0, 1);
-  return t * t * (3 - 2 * t);
-}
+function smoothstep(a, b, x) { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }
 
 function updateDOM(p) {
   let activeIdx = 0;
@@ -195,7 +139,6 @@ function updateDOM(p) {
     if (i === 0) o = 1 - smoothstep(c.b - w, c.b, p);
     else if (i === chapters.length - 1) o = smoothstep(c.a, c.a + w, p);
     else o = Math.min(smoothstep(c.a, c.a + w, p), 1 - smoothstep(c.b - w, c.b, p));
-
     if (Math.abs(o - c.o) > 0.003 || (o === 0) !== (c.o === 0)) {
       c.o = o;
       c.el.style.opacity = o.toFixed(3);
@@ -205,7 +148,6 @@ function updateDOM(p) {
     }
     if (p >= c.a) activeIdx = i;
   }
-  // sections outnumber movements: map each chapter to its movement
   const MOVEMENT_OF = [0, 1, 1, 2, 3, 4];
   navLinks.forEach((a, i) => a.classList.toggle('active', i === (MOVEMENT_OF[activeIdx] ?? 0)));
   document.body.classList.toggle('past-hero', p > 0.06);
@@ -213,10 +155,9 @@ function updateDOM(p) {
 
 // ── frame loop ─────────────────────────────────────────────────
 
-const fadeBlack = { value: 1, target: 1 };
-
 let lastTime = performance.now();
 let running = true;
+const black = $('#entrance-black');
 
 document.addEventListener('visibilitychange', () => {
   running = !document.hidden;
@@ -226,44 +167,23 @@ document.addEventListener('visibilitychange', () => {
 function loop() {
   if (!running) return;
   requestAnimationFrame(loop);
-
   const now = performance.now();
   const dt = Math.min(0.05, (now - lastTime) / 1000);
   lastTime = now;
-  state.time = state.timeLock ?? (state.time + dt);
+  state.time += dt;
 
-  // damped progress — the building refuses to be rushed
   const damp = state.still ? 1 : 1 - Math.exp(-dt * 2.1);
   state.progress = lerp(state.progress, state.target, damp);
   if (Math.abs(state.progress - state.target) < 0.0004) state.progress = state.target;
 
   const p = state.progress;
-  world.update(p, state.time);
-  rig.update(p);
+  film.draw(p);
   updateDOM(p);
 
-  // entrance fade
   fadeBlack.value = lerp(fadeBlack.value, fadeBlack.target, 1 - Math.exp(-dt * 1.4));
-  post.material.uniforms.uBlack.value = fadeBlack.value;
+  if (black) black.style.opacity = fadeBlack.value.toFixed(3);
 
   sound.update(clamp(p / 0.9, 0, 1), dt, smoothstep(0.80, 0.92, p));
-
-  post.render(world.scene, rig.camera, state.time);
-
-  // adaptive degrade: if the descent chugs, shed pixels first
-  if (!state.degraded && state.entered) {
-    state.fpsSamples.push(dt);
-    if (state.fpsSamples.length > 90) {
-      const avg = state.fpsSamples.reduce((a, b) => a + b, 0) / state.fpsSamples.length;
-      state.fpsSamples.length = 0;
-      if (avg > 1 / 34) {
-        state.degraded = true;
-        const dpr = Math.max(1, QUALITY.dpr * 0.72);
-        renderer.setPixelRatio(dpr);
-        post.setSize(innerWidth, innerHeight, dpr);
-      }
-    }
-  }
 }
 
 // ── resize ─────────────────────────────────────────────────────
@@ -271,53 +191,23 @@ function loop() {
 let resizeT;
 addEventListener('resize', () => {
   clearTimeout(resizeT);
-  resizeT = setTimeout(() => {
-    renderer.setSize(innerWidth, innerHeight);
-    post.setSize(innerWidth, innerHeight, renderer.getPixelRatio());
-    rig.camera.aspect = innerWidth / innerHeight;
-    rig.camera.updateProjectionMatrix();
-    readScroll();
-  }, 120);
+  resizeT = setTimeout(readScroll, 120);
 });
 
-// ── test probe (only with ?probe in the URL) ───────────────────
+// ── probe (screenshots) ────────────────────────────────────────
 
 if (new URLSearchParams(location.search).has('probe')) {
   window.__KB = {
-    world, rig, post,
+    film,
     jump(p) {
       const max = document.documentElement.scrollHeight - innerHeight;
       scrollTo(0, p * max);
-      state.target = p;
-      state.progress = p;
-      fadeBlack.value = fadeBlack.target;
+      state.target = p; state.progress = p;
+      fadeBlack.value = fadeBlack.target = 0;
+      film.draw(p, true); updateDOM(p);
     },
-    frame(p, t) {
-      this.jump(p);
-      state.timeLock = t;
-    },
-    info() {
-      return {
-        progress: state.progress,
-        target: state.target,
-        drawCalls: renderer.info.render.calls,
-        triangles: renderer.info.render.triangles,
-        geometries: renderer.info.memory.geometries,
-        textures: renderer.info.memory.textures,
-      };
-    },
-    pick(nx, ny) {
-      const rc = new THREE.Raycaster();
-      rc.setFromCamera(new THREE.Vector2(nx, ny), rig.camera);
-      const hits = rc.intersectObjects(world.scene.children, true);
-      return hits.slice(0, 3).map((h) => ({
-        type: h.object.type,
-        geo: h.object.geometry?.type,
-        pos: h.object.position.toArray().map((n) => Math.round(n * 10) / 10),
-        dist: Math.round(h.distance * 10) / 10,
-        parent: h.object.parent?.userData?.range || null,
-      }));
-    },
+    frame(p) { this.jump(p); },
+    info() { return { progress: state.progress, frame: film._cur, loaded: film.loaded }; },
   };
 }
 
