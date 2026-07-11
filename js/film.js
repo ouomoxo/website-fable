@@ -16,10 +16,27 @@ export class Film {
     this.ext = ext;
     this.stride = stride;             // load every Nth frame (mobile thrift)
     this.images = new Array(count).fill(null);
-    this.dpr = Math.min(2, window.devicePixelRatio || 1);
+    const coarse = matchMedia('(pointer: coarse)').matches;
+    this.dpr = Math.min(coarse ? 1.5 : 2, window.devicePixelRatio || 1);
     this.curP = 0;
+    this.over = 0.06;                 // overscan so parallax has room to pan
+    this.px = this.py = this.tpx = this.tpy = 0;
     this._resize();
     addEventListener('resize', () => { this._resize(); this.draw(this.curP, true); });
+
+    // parallax — the frame breathes with the pointer / device tilt, so it
+    // reads as depth, not a flat scroll
+    if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      addEventListener('pointermove', (e) => {
+        this.tpx = (e.clientX / innerWidth - 0.5) * 2;
+        this.tpy = (e.clientY / innerHeight - 0.5) * 2;
+      }, { passive: true });
+      addEventListener('deviceorientation', (e) => {
+        if (e.gamma == null) return;
+        this.tpx = Math.max(-1, Math.min(1, e.gamma / 26));
+        this.tpy = Math.max(-1, Math.min(1, ((e.beta || 40) - 40) / 26));
+      }, { passive: true });
+    }
   }
 
   _resize() {
@@ -61,14 +78,19 @@ export class Film {
   draw(progress, force = false) {
     this.curP = progress;
     const i = Math.round(Math.min(1, Math.max(0, progress)) * (this.count - 1));
-    if (i === this._cur && !force && !this._dirty) return;
     const img = this._nearest(i);
     if (!img) return;
+    // ease the parallax toward the pointer/tilt target
+    this.px += (this.tpx - this.px) * 0.06;
+    this.py += (this.tpy - this.py) * 0.06;
     const c = this.canvas, ctx = this.ctx;
     const cw = c.width, ch = c.height, iw = img.naturalWidth, ih = img.naturalHeight;
-    const s = Math.max(cw / iw, ch / ih);         // cover
+    const s = Math.max(cw / iw, ch / ih) * (1 + this.over);   // cover + overscan
     const w = iw * s, h = ih * s;
-    ctx.drawImage(img, (cw - w) / 2, (ch - h) / 2, w, h);
+    const maxX = (w - cw) / 2, maxY = (h - ch) / 2;
+    const ox = (cw - w) / 2 - this.px * maxX * 0.55;
+    const oy = (ch - h) / 2 - this.py * maxY * 0.45;
+    ctx.drawImage(img, ox, oy, w, h);
     this._cur = i;
     this._dirty = false;
   }

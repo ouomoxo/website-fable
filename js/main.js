@@ -14,7 +14,7 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const isTouch = matchMedia('(pointer: coarse)').matches;
 const prefersStill = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const FRAMES = 72;
+const FRAMES = 84;
 
 const state = {
   progress: 0,

@@ -35,11 +35,28 @@ for a single hero still; `render_seq.py` imports it and drives the camera path.
 `setlib.py` holds the procedural column / drum / capital / altar builders;
 `blender_lib.py` the scan-loading and render helpers.
 
+## The arc
+
+`render_seq.py` animates the **lighting** per frame, not just the camera, so
+the film has an emotional turn instead of being a flat dolly:
+
+- **I — in the dark**: the sun and key are near-dead; she is a cold ghost
+  barely emerging from black.
+- **II — the approach**: the camera draws closer, still cold.
+- **III — the kindling** (~scroll 0.5–0.64): the altar flame ignites and a
+  warm key floods up over her — a ~6-stop swing. This lands on the copy beat
+  "she lifts the flame that keeps them."
+- **IV — glory**: full warm light; the camera pulls back to the whole temple.
+
+Keep the darks dark: exposure is lowered and the **sun is animated** (a
+constant sun silently drowns the arc).
+
 ## Notes
 
-- One continuous move: intimate on the torch and wings → pull back and rise
-  through the colonnade to the whole temple. Copy beats in `index.html` map to
-  scroll fractions over that move.
+- The figure's scan front faces +Y; a baked 180° Z rotation turns it to the
+  -Y camera (an object-level rotation does not take in headless render).
+- `js/film.js` adds pointer/gyro **parallax** (overscan pan) so it reads as
+  depth, not a flat scroll; grain is static and off on touch for performance.
 - `--novol` keeps frame time to ~20 s (CPU); the full world volume is ~5–10×
   slower but gives true volumetric god-rays if you have the render budget.
 - Change `FRAMES` in `js/main.js` if you render a different count.
