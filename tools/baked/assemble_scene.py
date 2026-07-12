@@ -1,5 +1,5 @@
 import sys; import os as _o; sys.path.insert(0,_o.path.dirname(__file__))
-import blender_lib as B, setlib, bpy, math
+import blender_lib as B, setlib, bpy, bmesh, math
 from mathutils import Vector, Matrix
 
 # coordinate map from the web scene (X, up=Y, depthZ) to Blender (X, Y=depth, Z=up):
@@ -7,6 +7,62 @@ from mathutils import Vector, Matrix
 def W(x, y, z):  # web (x, up, depthTowardCamera+) -> blender vector
     return Vector((x, -z, y))
 
+# ── procedural marble ────────────────────────────────────────
+# A flat base colour reads as cardboard once baked. Real stone needs
+# three things: veining (wandering darker streaks), a broad warm/cool
+# tone drift across the block, and a faint micro-relief so raking light
+# grazes it. All of this bakes into the COMBINED lightmap for free.
+def marble_proc(name, light, dark, rough=0.42, sss=0.06,
+                vscale=1.9, dist=13.0, tone_warm=(0.05,0.02,-0.03),
+                bump=0.05, ssr=(0.9,0.6,0.45)):
+    m=bpy.data.materials.new(name); m.use_nodes=True
+    nt=m.node_tree; N=nt.nodes; K=nt.links
+    b=N.get("Principled BSDF")
+    tc=N.new("ShaderNodeTexCoord")
+    mp=N.new("ShaderNodeMapping"); mp.inputs['Scale'].default_value=(vscale,vscale,vscale)
+    K.new(tc.outputs['Object'], mp.inputs['Vector'])
+
+    # wandering vein bands
+    wv=N.new("ShaderNodeTexWave"); wv.wave_type='BANDS'; wv.bands_direction='DIAGONAL'
+    wv.wave_profile='SIN'
+    wv.inputs['Scale'].default_value=1.0
+    wv.inputs['Distortion'].default_value=dist
+    wv.inputs['Detail'].default_value=3.0
+    wv.inputs['Detail Scale'].default_value=1.5
+    K.new(mp.outputs['Vector'], wv.inputs['Vector'])
+    # thin dark vein only where the band crests
+    cr=N.new("ShaderNodeValToRGB"); ramp=cr.color_ramp
+    ramp.elements[0].position=0.32; ramp.elements[0].color=(*light,1)
+    ramp.elements[1].position=0.50; ramp.elements[1].color=(*dark,1)
+    e=ramp.elements.new(0.66); e.color=(*light,1)
+    K.new(wv.outputs['Fac'], cr.inputs['Fac'])
+
+    # broad warm/cool tone drift over the block
+    nz=N.new("ShaderNodeTexNoise"); nz.inputs['Scale'].default_value=0.7
+    nz.inputs['Detail'].default_value=2.0
+    K.new(mp.outputs['Vector'], nz.inputs['Vector'])
+    warm=(min(1,light[0]+tone_warm[0]), min(1,light[1]+tone_warm[1]), max(0,light[2]+tone_warm[2]))
+    tm=N.new("ShaderNodeMixRGB"); tm.blend_type='MIX'
+    dmul=N.new("ShaderNodeMath"); dmul.operation='MULTIPLY'; dmul.inputs[1].default_value=0.35
+    K.new(nz.outputs['Fac'], dmul.inputs[0]); K.new(dmul.outputs['Value'], tm.inputs['Fac'])
+    K.new(cr.outputs['Color'], tm.inputs['Color1']); tm.inputs['Color2'].default_value=(*warm,1)
+    K.new(tm.outputs['Color'], b.inputs['Base Color'])
+
+    # micro-relief so raking light catches the surface
+    fn=N.new("ShaderNodeTexNoise"); fn.inputs['Scale'].default_value=42.0; fn.inputs['Detail'].default_value=4.0
+    K.new(mp.outputs['Vector'], fn.inputs['Vector'])
+    bmp=N.new("ShaderNodeBump"); bmp.inputs['Strength'].default_value=bump; bmp.inputs['Distance'].default_value=0.004
+    K.new(fn.outputs['Fac'], bmp.inputs['Height']); K.new(bmp.outputs['Normal'], b.inputs['Normal'])
+
+    b.inputs['Roughness'].default_value=rough
+    try:
+        b.inputs['Subsurface Weight'].default_value=sss
+        b.inputs['Subsurface Radius'].default_value=ssr
+        b.inputs['Subsurface Scale'].default_value=0.12
+    except Exception: pass
+    return m
+
+# flat fallback (floor only — it is drawn plain at runtime, never baked)
 def marble(name, base, rough, sss=0.10, ssr=(0.9,0.6,0.45)):
     m=bpy.data.materials.new(name); m.use_nodes=True
     b=m.node_tree.nodes.get("Principled BSDF")
@@ -18,6 +74,15 @@ def marble(name, base, rough, sss=0.10, ssr=(0.9,0.6,0.45)):
     except Exception: pass
     return m
 
+# bevel every hard edge into the mesh so it catches a highlight instead
+# of reading as a razor-sharp CG crease (baked in — no runtime cost)
+def bevel_mesh(o, width=0.012, segs=2, profile=0.55):
+    bm=bmesh.new(); bm.from_mesh(o.data)
+    bmesh.ops.bevel(bm, geom=bm.edges[:]+bm.verts[:], offset=width, segments=segs,
+                    affect='EDGES', profile=profile, clamp_overlap=True)
+    bm.to_mesh(o.data); bm.free()
+    for p in o.data.polygons: p.use_smooth=True
+
 def emit(name, color, strength):
     m=bpy.data.materials.new(name); m.use_nodes=True
     nt=m.node_tree; nt.nodes.clear()
@@ -27,11 +92,19 @@ def emit(name, color, strength):
 
 B.reset()
 
-# ── materials ────────────────────────────────────────────────
-figMarble = marble("figMarble",(0.82,0.80,0.75),0.34, sss=0.14, ssr=(1.1,0.7,0.5))
-colMarble = marble("colMarble",(0.80,0.79,0.75),0.42, sss=0.06, ssr=(0.6,0.4,0.3))
-pedMarble = marble("pedMarble",(0.54,0.51,0.46),0.55, sss=0.03)
-fragStone = marble("fragStone",(0.52,0.49,0.44),0.72, sss=0.03)
+# ── materials (procedural marble; restrained veins + tone drift) ─────
+# the hero is clean luminous marble — only a whisper of veining, no bump
+# (the scan already carries surface detail); the architecture is MATTE
+# marble (high roughness, tiny bump) so it never reads as wet plastic.
+# the hero is the detailed Stanford scan — it carries its own surface;
+# procedural veining only mottles it, so keep it clean flat marble
+figMarble = marble("figMarble",(0.85,0.83,0.78),0.36, sss=0.16, ssr=(1.1,0.7,0.5))
+colMarble = marble_proc("colMarble",(0.80,0.78,0.73),(0.70,0.67,0.62), rough=0.60,
+                        sss=0.03, vscale=1.7, dist=9.0, bump=0.02)
+pedMarble = marble_proc("pedMarble",(0.50,0.47,0.42),(0.39,0.36,0.32), rough=0.58,
+                        sss=0.03, vscale=2.1, dist=11.0, tone_warm=(0.05,0.02,-0.03), bump=0.03)
+fragStone = marble_proc("fragStone",(0.49,0.46,0.41),(0.36,0.33,0.29), rough=0.78,
+                        sss=0.02, vscale=2.6, dist=8.0, bump=0.05)
 floorMat  = marble("floorMat",(0.24,0.23,0.21),0.42, sss=0.0)
 flameMat  = emit("flameMat",(1.0,0.58,0.24),22.0)
 
@@ -42,7 +115,7 @@ B.transform_mesh(fig, Matrix.Rotation(math.pi,4,'Z'))   # her front is +Y in the
 fig.data.materials.clear(); fig.data.materials.append(figMarble)
 for p in fig.data.polygons: p.use_smooth=True
 
-def box(name,w,d,h,zbot,taper=1.0,mat=None):
+def box(name,w,d,h,zbot,taper=1.0,mat=None,bevel=0.012):
     bpy.ops.mesh.primitive_cube_add(size=1); o=bpy.context.active_object; o.name=name
     for v in o.data.vertices:
         v.co.x*=w; v.co.y*=d; v.co.z=zbot+(v.co.z+0.5)*h
@@ -50,12 +123,17 @@ def box(name,w,d,h,zbot,taper=1.0,mat=None):
         f=(v.co.z-zbot)/h; s=1.0+(taper-1.0)*f; v.co.x*=s; v.co.y*=s
     o.data.update()
     if mat: o.data.materials.append(mat)
+    if bevel: bevel_mesh(o, width=bevel)
     return o
-step =box("step",1.86,1.86,0.24,0.00,mat=pedMarble)
-plin =box("plin",1.54,1.54,0.16,0.24,mat=pedMarble)
-shaft=box("shaft",1.30,1.30,1.58,0.40,taper=0.88,mat=pedMarble)
-cap  =box("cap",1.56,1.56,0.26,1.98,mat=pedMarble)
-capTop=2.24
+# a proper pedestal: plinth → flaring base course → tapered die →
+# projecting cornice → top slab. Each course beveled to catch the key.
+step =box("ped_plinth", 1.92,1.92,0.22,0.00,          mat=pedMarble, bevel=0.016)
+base2=box("ped_base",   1.66,1.66,0.14,0.22,taper=0.92,mat=pedMarble, bevel=0.018)
+shaft=box("ped_die",    1.34,1.34,1.42,0.36,taper=0.90,mat=pedMarble, bevel=0.012)
+neck =box("ped_neck",   1.42,1.42,0.10,1.78,taper=1.12,mat=pedMarble, bevel=0.016)
+cap  =box("ped_cornice",1.70,1.70,0.20,1.88,          mat=pedMarble, bevel=0.020)
+ptop =box("ped_top",    1.48,1.48,0.14,2.08,taper=0.94,mat=pedMarble, bevel=0.014)
+capTop=2.22
 fig.location=(0,0,capTop-0.04)
 
 # ── colonnade (linked duplicates) + architrave ───────────────
@@ -113,9 +191,16 @@ sun=bpy.data.lights.new("sun","SUN"); sun.energy=1.6; sun.angle=math.radians(2.0
 so=bpy.data.objects.new("sun",sun); bpy.context.scene.collection.objects.link(so)
 so.rotation_euler=(math.radians(60), math.radians(8), math.radians(-40))
 # cool fill so the shadow side keeps marble form
-fill=bpy.data.lights.new("fill","AREA"); fill.energy=48; fill.size=10; fill.color=(0.5,0.62,0.85)
+fill=bpy.data.lights.new("fill","AREA"); fill.energy=44; fill.size=10; fill.color=(0.5,0.62,0.85)
 fo=bpy.data.objects.new("fill",fill); bpy.context.scene.collection.objects.link(fo)
 fo.location=W(5,4,-9); fo.rotation_euler=(math.radians(62),0,math.radians(28))
+# a tight warm rim from high behind, so the hero's silhouette separates
+# from the dark and the wing edges glow — the classic monument read
+rim=bpy.data.lights.new("rim","AREA"); rim.energy=150; rim.size=2.2; rim.color=(1.0,0.9,0.74)
+ro=bpy.data.objects.new("rim",rim); bpy.context.scene.collection.objects.link(ro)
+ro.location=W(1.4,5.2,-4.2)
+rt=bpy.data.objects.new("rimt",None); bpy.context.scene.collection.objects.link(rt); rt.location=W(0.2,3.4,0.0)
+cr=ro.constraints.new('TRACK_TO'); cr.target=rt; cr.track_axis='TRACK_NEGATIVE_Z'; cr.up_axis='UP_Y'
 
 # world: dim cool sky + volumetric haze so the shaft/sun read as light
 w=bpy.data.worlds.new("W"); bpy.context.scene.world=w; w.use_nodes=True

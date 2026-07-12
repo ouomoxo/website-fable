@@ -38,6 +38,17 @@ node compress_baked.mjs /tmp/lm/baked.glb ../../assets/baked/baked.glb
   architecture, unwraps (Smart UV Project), and bakes each object for the
   `glory` and `dark` states, then exports `baked.glb`. `setlib.py` holds the
   column/drum/capital/altar builders; `blender_lib.py` the scan helpers.
+- **Materials & finish** (`marble_proc` in `assemble_scene.py`): the
+  architecture uses procedural marble — wandering vein bands, a broad
+  warm/cool tone drift, and a faint micro-relief bump — so it never bakes as
+  flat cardboard. Keep it restrained (high roughness, tiny bump) or it reads
+  as wet plastic. The hero is the detailed scan: it stays **flat** marble
+  (`marble`), because procedural veining only mottles it. Every box course is
+  edge-beveled (`bevel_mesh`) so it catches the key instead of showing a
+  razor CG crease. A warm rim light from high-behind separates the hero from
+  the dark; `bake_full.light_state` toggles it (and all lights) per state.
+- `BAKE_FAST=1` shrinks maps/samples for quick iteration; unset for the
+  full 2048 (figure) / 4096 (architecture) ship bake — allow ~15 min on CPU.
 - **Re-bake as a whole**: Smart UV Project lays out UVs fresh each run, so the
   textures only match the GLB exported in the *same* run. Never re-bake one
   object against an old GLB.

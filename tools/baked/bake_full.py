@@ -68,20 +68,26 @@ def light_state(which):
     if which == 'glory':
         S.spot.energy = 6600; S.spot.color = (1.0, 0.9, 0.66)
         S.sun.energy = 1.5;   S.sun.color = (1.0, 0.9, 0.74)
-        S.fill.energy = 52;   S.fill.color = (0.55, 0.58, 0.66)
+        S.fill.energy = 44;   S.fill.color = (0.55, 0.58, 0.66)
+        S.rim.energy = 150;   S.rim.color = (1.0, 0.9, 0.74)
         S.bg.inputs['Strength'].default_value = 0.24
         emNode.inputs['Strength'].default_value = 26.0; S.flpt.energy = 300.0
     else:  # dark
         S.spot.energy = 150;  S.spot.color = (0.72, 0.82, 1.0)
         S.sun.energy = 0.0
         S.fill.energy = 5;    S.fill.color = (0.42, 0.56, 0.95)
+        S.rim.energy = 14;    S.rim.color = (0.6, 0.72, 1.0)
         S.bg.inputs['Strength'].default_value = 0.05
         emNode.inputs['Strength'].default_value = 0.0; S.flpt.energy = 0.0
 
+# fast preview: BAKE_FAST=1 shrinks maps + samples for quick iteration
+FAST = os.environ.get('BAKE_FAST') == '1'
+FIG_SZ, FIG_SM = (1024, 40) if FAST else (2048, 128)
+ARCH_SZ, ARCH_SM = (2048, 28) if FAST else (4096, 72)
 for state in ('glory', 'dark'):
     light_state(state)
-    bake(fig,  fig_nodes,  f'figure_{state}', 2048, 128)
-    bake(arch, arch_nodes, f'arch_{state}',   4096, 72)
+    bake(fig,  fig_nodes,  f'figure_{state}', FIG_SZ, FIG_SM)
+    bake(arch, arch_nodes, f'arch_{state}',   ARCH_SZ, ARCH_SM)
 
 # ── export geometry (UVs only; materials cleared) ────────────
 fig.data.materials.clear(); arch.data.materials.clear()
