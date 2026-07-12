@@ -48,24 +48,6 @@ body {
 }
 
 #track { position: absolute; top: 0; left: 0; width: 1px; height: 1050vh; pointer-events: none; }
-
-/* finishing grade — vignette + a barely-there film grain */
-#grade { position: fixed; inset: 0; z-index: 10; pointer-events: none; }
-#grade::before {
-  content: ""; position: absolute; inset: 0;
-  background: radial-gradient(122% 100% at 50% 44%, transparent 40%, rgba(0,0,0,0.30) 80%, rgba(0,0,0,0.58) 100%);
-}
-/* static grain — a single rasterised noise tile, no animated filter
-   (an animated fullscreen SVG filter destroys mobile GPUs) */
-#grade::after {
-  content: ""; position: absolute; inset: 0;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-  background-size: 220px 220px;
-  opacity: 0.04; mix-blend-mode: overlay;
-}
-/* mobile: drop grain + blend entirely — pure gradient vignette only */
-@media (pointer: coarse) { #grade::after { display: none; } }
-#entrance-black { position: fixed; inset: 0; z-index: 12; background: #000; pointer-events: none; }
 @media (max-width: 720px) { #track { height: 950vh; } }
 
 /* ═══ LOADER ═══════════════════════════════════════════════════ */
